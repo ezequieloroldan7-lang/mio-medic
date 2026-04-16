@@ -80,9 +80,25 @@ def tarea_whatsapp():
         db.close()
 
 
+def _migrate_db():
+    """Migraciones incrementales para SQLite."""
+    from sqlalchemy import inspect, text
+    insp = inspect(engine)
+    if "pacientes" in insp.get_table_names():
+        cols = [c["name"] for c in insp.get_columns("pacientes")]
+        with engine.begin() as conn:
+            if "cobertura" in cols and "financiador" not in cols:
+                conn.execute(text("ALTER TABLE pacientes RENAME COLUMN cobertura TO financiador"))
+                log.info("Migración: cobertura → financiador")
+            if "plan" not in cols:
+                conn.execute(text("ALTER TABLE pacientes ADD COLUMN plan TEXT"))
+                log.info("Migración: agregada columna plan")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
+    _migrate_db()
     _seed_datos_iniciales()
     scheduler.add_job(tarea_whatsapp, "interval", hours=1, id="wa_reminders", replace_existing=True)
     scheduler.start()
