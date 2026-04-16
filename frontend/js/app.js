@@ -64,6 +64,27 @@ function toast(msg, type="info") {
 }
 function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); sessionStorage.clear(); window.location.href="/login"; }
 
+/* ── Breadcrumb contextual en modales ────────────────────── */
+const _VIEW_LABELS = {
+  "view-dashboard": "Dashboard",
+  "view-agenda": "Agenda",
+  "view-turnos": "Turnos",
+  "view-pacientes": "Pacientes",
+  "view-profesionales": "Profesionales",
+};
+function _activeSection() {
+  const active = document.querySelector(".view.active");
+  return _VIEW_LABELS[active?.id] || "";
+}
+function setModalTitle(id, label, crumbOverride) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const crumb = crumbOverride !== undefined ? crumbOverride : _activeSection();
+  el.innerHTML = crumb
+    ? `<span class="modal-crumb">${esc(crumb)}</span><span class="modal-crumb-sep">›</span>${esc(label)}`
+    : esc(label);
+}
+
 /* ── Validación inline de formularios ───────────────────── */
 function markFieldError(id, msg) {
   const el = document.getElementById(id); if (!el) return;
@@ -707,13 +728,13 @@ window.copiarLinkCalendario = copiarLinkCalendario;
 
 /* ── Modal Médico ────────────────────────────────────────── */
 function abrirNuevoMedico() {
-  medicoEditing=null; $("modal-medico-titulo").textContent="Nuevo Profesional";
+  medicoEditing=null; setModalTitle("modal-medico-titulo","Nuevo Profesional");
   ["med-nombre","med-apellido","med-matricula","med-telefono","med-email","med-gcal"].forEach(id=>$(id).value="");
   $("med-especialidad").value=""; $("modal-medico").classList.add("open");
 }
 async function abrirEditarMedico(id) {
   const m=await api(`/medicos/${id}`); medicoEditing=id;
-  $("modal-medico-titulo").textContent="Editar Profesional";
+  setModalTitle("modal-medico-titulo","Editar Profesional");
   $("med-nombre").value=m.nombre; $("med-apellido").value=m.apellido;
   $("med-especialidad").value=m.especialidad_id; $("med-matricula").value=m.matricula||"";
   $("med-telefono").value=m.telefono||""; $("med-email").value=m.email||"";
@@ -739,6 +760,7 @@ async function eliminarMedico(id) {
 function abrirAgregarHorario(medicoId) {
   horarioParaMedicoId=medicoId;
   $("hor-dia").value="0";$("hor-inicio").value="09:00";$("hor-fin").value="13:00";$("hor-consultorio").value="1";
+  setModalTitle("modal-horario-titulo","Agregar Horario","Profesionales");
   $("modal-horario").classList.add("open");
 }
 async function guardarHorario() {
@@ -803,7 +825,7 @@ async function agregarPacienteDesdeTurno() {
 /* ── Modal Turno ─────────────────────────────────────────── */
 function abrirNuevoTurno(consultorio=1, fechaHora="") {
   turnoEditing=null;
-  $("modal-turno-titulo").textContent="Nuevo Turno"; $("campo-estado").style.display="none";
+  setModalTitle("modal-turno-titulo","Nuevo Turno"); $("campo-estado").style.display="none";
   $("turno-consultorio").value=consultorio; $("turno-fecha-hora").value=fechaHora;
   $("turno-paciente-input").value=""; $("turno-paciente-id").value="";
   $("turno-medico").value=""; $("turno-duracion").value="45";
@@ -824,7 +846,7 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
 }
 async function abrirEditarTurno(id) {
   const t=await api(`/turnos/${id}`); turnoEditing=id;
-  $("modal-turno-titulo").textContent="Editar Turno"; $("campo-estado").style.display="flex";
+  setModalTitle("modal-turno-titulo","Editar Turno"); $("campo-estado").style.display="flex";
   $("turno-consultorio").value=t.consultorio; $("turno-fecha-hora").value=t.fecha_hora_inicio.slice(0,16);
   $("turno-paciente-input").value=`${t.paciente?.apellido} ${t.paciente?.nombre}`;
   $("turno-paciente-id").value=t.paciente_id;
@@ -946,7 +968,7 @@ async function eliminarTurno(id) {
 
 /* ── Modal Paciente ─────────────────────────────────────── */
 function abrirNuevoPaciente(prefill) {
-  pacienteEditing=null; $("modal-paciente-titulo").textContent="Nuevo Paciente";
+  pacienteEditing=null; setModalTitle("modal-paciente-titulo","Nuevo Paciente");
   ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-financiador","pac-plan","pac-deriva"].forEach(id=>$(id).value="");
   if (typeof prefill === "string" && prefill.trim()) {
     // "APELLIDO NOMBRE" o solo "APELLIDO" → primer token a apellido, resto a nombre
@@ -959,7 +981,7 @@ function abrirNuevoPaciente(prefill) {
 }
 async function abrirEditarPaciente(id) {
   const p=await api(`/pacientes/${id}`); pacienteEditing=id;
-  $("modal-paciente-titulo").textContent="Editar Paciente";
+  setModalTitle("modal-paciente-titulo","Editar Paciente");
   $("pac-nombre").value=p.nombre;$("pac-apellido").value=p.apellido;
   $("pac-tel").value=p.telefono||"";$("pac-email").value=p.email||"";
   $("pac-dni").value=p.dni||"";$("pac-hc").value=p.nro_hc||"";
@@ -1011,6 +1033,7 @@ function cerrarModal(id){$(id).classList.remove("open"); clearFormErrors(id);}
 /* ── Cambiar contraseña ───────────────────────────────────── */
 function abrirCambiarPassword() {
   $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
+  setModalTitle("modal-password-titulo","Cambiar contraseña","Mi cuenta");
   $("modal-password").classList.add("open");
 }
 async function resetearPassword(userId, username) {

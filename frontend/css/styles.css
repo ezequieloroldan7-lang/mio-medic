@@ -574,6 +574,17 @@ tr:hover td { background: #fbf8f4; }
   font-family: var(--font-display);
   font-weight: 500; font-size: 1rem;
   color: var(--text); letter-spacing: .3px;
+  display: inline-flex; align-items: center; gap: .45rem;
+  min-width: 0;
+}
+.modal-crumb {
+  font-size: .72rem; font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1.1px;
+}
+.modal-crumb-sep {
+  color: var(--muted); opacity: .6;
+  font-weight: 400; font-size: .95rem;
 }
 .modal-close {
   background: none; border: none; font-size: 1.1rem;
