@@ -177,6 +177,12 @@ document.querySelector(".main").addEventListener("click",()=>{
 
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
+  // Verificar token contra el servidor
+  try {
+    const me = await fetch("/auth/me", {headers:{"Authorization":"Bearer "+localStorage.getItem("token")}});
+    if (me.status === 401) { logout(); return; }
+  } catch(e) { /* offline, continuar */ }
+
   // Mostrar nombre de usuario
   if (currentUser) {
     if ($("user-display")) $("user-display").textContent = currentUser.display_name;
@@ -187,8 +193,14 @@ async function init() {
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
   }
+  // Si es admin, habilitar opciones admin-only (subir logo)
+  if (currentUser && currentUser.role === "admin") {
+    document.body.classList.add("is-admin");
+  }
 
-  [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  const [m, e, p] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  if (!m || !e || !p) return;
+  medicos = m; especialidades = e; pacientes = p;
   populateSelects();
 
   // Si es medico, preseleccionar su profesional en el filtro
@@ -227,6 +239,7 @@ function _filtrarPorRol(turnos) {
 async function renderDashboard() {
   try {
     const todos_raw = await api(`/turnos?fecha=${new Date().toISOString().slice(0,10)}`);
+    if (!todos_raw) return;
     const todos = _filtrarPorRol(todos_raw);
 
     const cnt = (estado) => todos.filter(t => t.estado === estado).length;
@@ -265,6 +278,7 @@ async function renderAgenda() {
   $("agenda-fecha").value=fecha;
   $("agenda-titulo").textContent=fmtFecha(fecha+"T12:00:00");
   const turnos_raw=await api(`/turnos?fecha=${fecha}`);
+  if(!turnos_raw)return;
   const turnos=_filtrarPorRol(turnos_raw);
   const activos=turnos.filter(t=>t.estado!=="cancelado");
   renderColumna(1,activos.filter(t=>t.consultorio===1),fecha);
@@ -377,6 +391,7 @@ $("btn-agenda-next").addEventListener("click",()=>{const d=new Date($("agenda-fe
 async function renderTurnos(q="") {
   const fecha=$("filtro-fecha")?.value||"";
   const turnos_raw=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
+  if(!turnos_raw)return;
   const turnos=_filtrarPorRol(turnos_raw);
   const f=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
   $("tabla-turnos").innerHTML=f.length===0
@@ -398,7 +413,7 @@ async function renderTurnos(q="") {
         <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)} — ${esc(t.medico?.especialidad?.nombre||"")}</span>
         <span class="badge badge-${t.estado}">${t.estado}</span>
         <span class="dash-turno-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-outline" onclick="abrirEditarTurno(${t.id})">Editar</button>
+          <button class="btn btn-sm btn-primary" onclick="abrirEditarTurno(${t.id})">Reprogramar</button>
           <button class="btn btn-sm btn-outline" onclick="cancelarTurno(${t.id})" style="color:var(--warning);border-color:var(--warning)">Cancelar</button>
           <button class="btn btn-sm btn-danger" onclick="eliminarTurno(${t.id})">Eliminar</button>
         </span>
@@ -482,15 +497,15 @@ async function renderPacientes(q="") {
           if (p.telefono) info.push(esc(p.telefono));
           if (p.email) info.push(esc(p.email));
           if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
-          const infoStr = info.length ? `<span style="font-size:.78rem;color:var(--muted);display:inline-flex;gap:.6rem;flex-wrap:wrap">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
-          return `<div class="dash-turno-card" style="align-items:center;flex-wrap:nowrap">
-            <span class="dash-turno-paciente" style="flex:0 0 auto;font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+          const infoStr = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : "";
+          return `<div class="pac-card">
+            <div class="pac-card-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</div>
             ${infoStr}
-            <span style="margin-left:auto;display:flex;gap:.25rem;flex-shrink:0">
+            <div class="pac-card-btns">
               <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
               <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
               <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
-            </span>
+            </div>
           </div>`;
         }).join("");
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
@@ -728,6 +743,19 @@ async function guardarTurno() {
   const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
   if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
 
+  // Validar turno duplicado (mismo paciente mismo día)
+  if (!turnoEditing) {
+    const fechaTurno = $("turno-fecha-hora").value.slice(0, 10);
+    try {
+      const turnosDelDia = await api(`/turnos?fecha=${fechaTurno}`);
+      const duplicado = turnosDelDia.find(t => t.paciente_id === pacienteId && t.estado !== "cancelado");
+      if (duplicado) {
+        const hora = fmtHoraDisplay(duplicado.fecha_hora_inicio);
+        if (!confirm(`Este paciente ya tiene un turno el ${fechaTurno} a las ${hora}.\n\n¿Agendar otro turno de todas formas?`)) return;
+      }
+    } catch(e) { /* continuar si falla la validación */ }
+  }
+
   // Validar franja horaria del profesional
   const alertaHorario = _validarHorarioMedico(medicoId, $("turno-fecha-hora").value, parseInt($("turno-consultorio").value));
   if (alertaHorario && !confirm(alertaHorario + "\n\n¿Agendar de todas formas?")) return;
@@ -746,8 +774,24 @@ async function guardarTurno() {
       await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
       toast("Turno actualizado ✓","success");
     }else{
-      await api("/turnos",{method:"POST",body:JSON.stringify(body)});
-      toast("Turno creado ✓","success");
+      const turnoNuevo = await api("/turnos",{method:"POST",body:JSON.stringify(body)});
+      // Mostrar resumen del turno creado
+      const p = turnoNuevo?.paciente;
+      const m = turnoNuevo?.medico;
+      const dt = new Date(turnoNuevo.fecha_hora_inicio);
+      const resumen = $("turno-creado-resumen");
+      if (resumen) {
+        resumen.innerHTML = `
+          <div><strong>Paciente:</strong> ${esc(p?.apellido)}, ${esc(p?.nombre)}</div>
+          ${p?.telefono ? `<div><strong>WhatsApp:</strong> ${esc(p.telefono)}</div>` : ""}
+          <div><strong>Profesional:</strong> ${esc(m?.nombre)} ${esc(m?.apellido)} — ${esc(m?.especialidad?.nombre||"")}</div>
+          <div><strong>Fecha:</strong> ${fmtFecha(turnoNuevo.fecha_hora_inicio)}</div>
+          <div><strong>Hora:</strong> ${fmtHoraDisplay(turnoNuevo.fecha_hora_inicio)} — Consultorio ${turnoNuevo.consultorio}</div>
+          <div><strong>Duración:</strong> ${turnoNuevo.duracion_minutos} minutos</div>
+          ${turnoNuevo.observaciones ? `<div><strong>Obs:</strong> ${esc(turnoNuevo.observaciones)}</div>` : ""}
+        `;
+        $("modal-turno-creado").classList.add("open");
+      }
     }
     cerrarModal("modal-turno"); renderAgenda(); renderDashboard();
   }catch(e){toast(e.message,"error");}
@@ -859,6 +903,94 @@ async function guardarPassword() {
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
+
+/* ── Logo / Branding ─────────────────────────────────────── */
+async function abrirSubirLogo() {
+  const preview = $("logo-preview");
+  const btnDel  = $("btn-eliminar-logo");
+  $("logo-file").value = "";
+  preview.innerHTML = `<span class="logo-preview-empty">Cargando...</span>`;
+  btnDel.style.display = "none";
+  try {
+    const res = await fetch("/branding/logo?t=" + Date.now(), { cache: "no-store" });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      preview.innerHTML = `<img src="${url}" alt="logo actual"/>`;
+      btnDel.style.display = "inline-flex";
+    } else {
+      preview.innerHTML = `<span class="logo-preview-empty">Sin logo cargado</span>`;
+    }
+  } catch {
+    preview.innerHTML = `<span class="logo-preview-empty">Sin logo cargado</span>`;
+  }
+  $("modal-logo").classList.add("open");
+}
+
+function _refreshHeaderLogo() {
+  const img = $("header-logo-img");
+  const txt = $("header-logo-text");
+  if (!img) return;
+  img.classList.remove("loaded");
+  img.style.display = "";
+  if (txt) txt.style.display = "";
+  img.onload = () => {
+    img.classList.add("loaded");
+    if (txt) txt.style.display = "none";
+  };
+  img.onerror = () => { img.style.display = "none"; };
+  img.src = "/branding/logo?t=" + Date.now();
+}
+
+async function subirLogo() {
+  const f = $("logo-file").files[0];
+  if (!f) { toast("Seleccioná un archivo", "error"); return; }
+  if (f.size > 5 * 1024 * 1024) { toast("El archivo supera los 5 MB", "error"); return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch("/branding/logo", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token },
+      body: fd,
+    });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || "Error al subir el logo");
+    }
+    toast("Logo actualizado", "success");
+    cerrarModal("modal-logo");
+    _refreshHeaderLogo();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function eliminarLogo() {
+  if (!confirm("¿Eliminar el logo actual?")) return;
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch("/branding/logo", {
+      method: "DELETE",
+      headers: { "Authorization": "Bearer " + token },
+    });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok && res.status !== 204) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || "Error al eliminar el logo");
+    }
+    toast("Logo eliminado", "success");
+    cerrarModal("modal-logo");
+    const img = $("header-logo-img");
+    const txt = $("header-logo-text");
+    if (img) { img.classList.remove("loaded"); img.style.display = "none"; img.src = ""; }
+    if (txt) txt.style.display = "";
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
 
 init().then(() => {
   if (!localStorage.getItem("tutorial_done")) tutorialStart();
