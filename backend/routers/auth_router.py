@@ -52,6 +52,17 @@ def cambiar_password(data: schemas.ChangePassword, db: Session = Depends(get_db)
     return {"detail": "Contraseña actualizada"}
 
 
+@router.put("/users/{user_id}/reset-password")
+def resetear_password(user_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
+    u = db.query(models.User).filter(models.User.id == user_id).first()
+    if not u:
+        raise HTTPException(404, "Usuario no encontrado")
+    new_pw = "mio2026"
+    u.password_hash = hash_password(new_pw)
+    db.commit()
+    return {"detail": f"Contraseña de '{u.username}' reseteada a '{new_pw}'"}
+
+
 @router.delete("/users/{user_id}", status_code=204)
 def eliminar_usuario(user_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     u = db.query(models.User).filter(models.User.id == user_id).first()
