@@ -252,7 +252,8 @@ async function renderAgenda() {
   const fecha=$("agenda-fecha").value||new Date().toISOString().slice(0,10);
   $("agenda-fecha").value=fecha;
   $("agenda-titulo").textContent=fmtFecha(fecha+"T12:00:00");
-  const turnos=await api(`/turnos?fecha=${fecha}`);
+  const turnos_raw=await api(`/turnos?fecha=${fecha}`);
+  const turnos=_filtrarPorRol(turnos_raw);
   const activos=turnos.filter(t=>t.estado!=="cancelado");
   renderColumna(1,activos.filter(t=>t.consultorio===1),fecha);
   renderColumna(2,activos.filter(t=>t.consultorio===2),fecha);
