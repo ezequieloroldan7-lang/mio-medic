@@ -483,16 +483,14 @@ async function renderPacientes(q="") {
           if (p.email) info.push(esc(p.email));
           if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
           const infoStr = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : "";
-          return `<div class="dash-turno-card pac-card">
-            <div class="pac-card-top">
-              <span class="pac-card-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</span>
-              <span class="pac-card-btns">
-                <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
-                <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
-                <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
-              </span>
-            </div>
+          return `<div class="pac-card">
+            <div class="pac-card-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</div>
             ${infoStr}
+            <div class="pac-card-btns">
+              <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
+              <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
+            </div>
           </div>`;
         }).join("");
           </div>`;
