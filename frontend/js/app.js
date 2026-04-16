@@ -177,6 +177,12 @@ document.querySelector(".main").addEventListener("click",()=>{
 
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
+  // Verificar token contra el servidor
+  try {
+    const me = await fetch("/auth/me", {headers:{"Authorization":"Bearer "+localStorage.getItem("token")}});
+    if (me.status === 401) { logout(); return; }
+  } catch(e) { /* offline, continuar */ }
+
   // Mostrar nombre de usuario
   if (currentUser) {
     if ($("user-display")) $("user-display").textContent = currentUser.display_name;
