@@ -52,7 +52,7 @@ async function api(path, opts={}) {
   const headers = {"Content-Type":"application/json"};
   if (token) headers["Authorization"] = "Bearer " + token;
   const res = await fetch(url, { headers, cache: "no-store", ...opts });
-  if(res.status===401){ logout(); return; }
+  if(res.status===401 && !path.startsWith("/auth/")){ logout(); return; }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||"Error en el servidor");}
   if(res.status===204)return null; return res.json();
 }
@@ -528,16 +528,18 @@ async function renderProfesionales() {
       section.style.display = "block";
       try {
         const users = await api("/auth/users");
-        $("users-list").innerHTML = users.map(u =>
-          `<div class="dash-turno-card" style="align-items:center">
-            <span style="font-weight:600;min-width:150px">${esc(u.display_name)}</span>
-            <span style="font-size:.78rem;color:var(--muted)">usuario: ${esc(u.username)}</span>
-            <span style="font-size:.72rem;background:var(--accent);padding:.2rem .5rem;border-radius:4px">${u.role === "admin" ? "Secretaria" : "Profesional"}</span>
-            <span style="margin-left:auto;display:flex;gap:.25rem">
-              <button class="btn btn-sm btn-outline" onclick="resetearPassword(${u.id},'${esc(u.username)}')">Resetear clave</button>
-            </span>
-          </div>`
-        ).join("");
+        if (users) {
+          $("users-list").innerHTML = users.map(u =>
+            `<div class="dash-turno-card" style="align-items:center">
+              <span style="font-weight:600;min-width:150px">${esc(u.display_name)}</span>
+              <span style="font-size:.78rem;color:var(--muted)">usuario: ${esc(u.username)}</span>
+              <span style="font-size:.72rem;background:var(--accent);padding:.2rem .5rem;border-radius:4px">${u.role === "admin" ? "Secretaria" : "Profesional"}</span>
+              <span style="margin-left:auto;display:flex;gap:.25rem">
+                <button class="btn btn-sm btn-outline" onclick="resetearPassword(${u.id},'${esc(u.username)}')">Resetear clave</button>
+              </span>
+            </div>`
+          ).join("");
+        }
       } catch(e) { /* silenciar si falla */ }
     }
   }
