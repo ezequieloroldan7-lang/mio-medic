@@ -520,29 +520,6 @@ async function renderProfesionales() {
         </div>`;
     }).join("");
   } catch (e) { toast("Error al cargar profesionales: " + e.message, "error"); }
-
-  // Mostrar usuarios si es admin
-  if (currentUser && currentUser.role === "admin") {
-    const section = $("admin-users-section");
-    if (section) {
-      section.style.display = "block";
-      try {
-        const users = await api("/auth/users");
-        if (users) {
-          $("users-list").innerHTML = users.map(u =>
-            `<div class="dash-turno-card" style="align-items:center">
-              <span style="font-weight:600;min-width:150px">${esc(u.display_name)}</span>
-              <span style="font-size:.78rem;color:var(--muted)">usuario: ${esc(u.username)}</span>
-              <span style="font-size:.72rem;background:var(--accent);padding:.2rem .5rem;border-radius:4px">${u.role === "admin" ? "Secretaria" : "Profesional"}</span>
-              <span style="margin-left:auto;display:flex;gap:.25rem">
-                <button class="btn btn-sm btn-outline" onclick="resetearPassword(${u.id},'${esc(u.username)}')">Resetear clave</button>
-              </span>
-            </div>`
-          ).join("");
-        }
-      } catch(e) { console.error("Error cargando usuarios:", e); $("users-list").innerHTML = `<div style="color:var(--danger);font-size:.8rem">Error: ${esc(e.message)}</div>`; }
-    }
-  }
 }
 
 function renderHorariosPills(horarios, medicoId) {
