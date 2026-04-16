@@ -485,6 +485,34 @@ tr:hover td { background: #fbf8f4; }
   font-weight: 600; margin-top: .2rem;
 }
 
+.prof-turnos-hoy {
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .3rem .6rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text-soft);
+  font-size: .7rem; font-weight: 600;
+  letter-spacing: .3px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.prof-turnos-hoy .prof-turnos-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px;
+  padding: 0 .35rem;
+  border-radius: 999px;
+  background: var(--primary-dk);
+  color: #fff;
+  font-size: .72rem; font-weight: 700;
+}
+.prof-turnos-vacio {
+  color: var(--muted);
+  font-weight: 500;
+  opacity: .85;
+}
+
 .prof-info {
   display: flex; flex-direction: column; gap: .35rem;
   font-size: .78rem; color: var(--text-soft);

@@ -601,7 +601,17 @@ $("buscar-paciente").addEventListener("input", e => renderPacientes(e.target.val
 /* ── Profesionales ──────────────────────────────────────── */
 async function renderProfesionales() {
   try {
-    medicos = await api("/medicos");
+    const hoy = new Date().toISOString().slice(0,10);
+    const [meds, turnosHoy] = await Promise.all([
+      api("/medicos"),
+      api(`/turnos?fecha=${hoy}`).catch(() => []),
+    ]);
+    medicos = meds;
+    const turnosPorMedico = {};
+    turnosHoy.filter(t => t.estado !== "cancelado").forEach(t => {
+      turnosPorMedico[t.medico_id] = (turnosPorMedico[t.medico_id] || 0) + 1;
+    });
+
     const grid = $("prof-grid");
     if (!medicos.length) {
       grid.innerHTML = `<div class="empty-state"><span class="empty-state-icon">✦</span>No hay profesionales registrados</div>`;
@@ -609,6 +619,10 @@ async function renderProfesionales() {
     }
     grid.innerHTML = medicos.map(m => {
       const iniciales = ((m.nombre[0] || "") + (m.apellido[0] || "")).toUpperCase();
+      const n = turnosPorMedico[m.id] || 0;
+      const badge = n > 0
+        ? `<span class="prof-turnos-hoy" title="Turnos activos hoy"><span class="prof-turnos-num">${n}</span> ${n === 1 ? "turno" : "turnos"} hoy</span>`
+        : `<span class="prof-turnos-hoy prof-turnos-vacio" title="Sin turnos para hoy">Sin turnos hoy</span>`;
       const infoRows = [];
       if (m.matricula)          infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">◉</span><span>Mat. ${esc(m.matricula)}</span></div>`);
       if (m.telefono)           infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">☏</span><span>${esc(m.telefono)}</span></div>`);
@@ -623,6 +637,7 @@ async function renderProfesionales() {
               <div class="prof-nombre">${esc(m.nombre)} ${esc(m.apellido)}</div>
               <div class="prof-esp">${esc(m.especialidad?.nombre || "Sin especialidad")}</div>
             </div>
+            ${badge}
           </div>
           ${infoRows.length ? `<div class="prof-info">${infoRows.join("")}</div>` : ""}
           <div class="prof-section">
