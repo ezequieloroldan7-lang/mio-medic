@@ -95,6 +95,24 @@ def _migrate_db():
                 conn.execute(text("ALTER TABLE pacientes ADD COLUMN plan TEXT"))
                 log.info("Migración: agregada columna plan")
 
+    # Eliminar medicos de prueba (dejar solo Garrido)
+    db = SessionLocal()
+    try:
+        apellidos_borrar = ["Pereyra", "Rodríguez", "Méndez", "Fernández"]
+        for ap in apellidos_borrar:
+            m = db.query(models.Medico).filter(models.Medico.apellido == ap).first()
+            if m:
+                db.query(models.User).filter(models.User.medico_id == m.id).delete()
+                db.query(models.Turno).filter(models.Turno.medico_id == m.id).delete()
+                db.delete(m)
+                log.info("Migración: eliminado médico de prueba %s", ap)
+        db.commit()
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.error("Error eliminando médicos de prueba: %s", e)
+    finally:
+        db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -202,10 +220,6 @@ def _seed_datos_iniciales():
 
         medicos_seed = [
             ("María de los Ángeles", "Garrido",   "Ginecología"),
-            ("Carlos",               "Pereyra",   "Cosmetología"),
-            ("Martín",               "Rodríguez", "Nutrición"),
-            ("Sofía",                "Méndez",    "Sexología"),
-            ("Laura",                "Fernández", "Dermatología"),
         ]
         for nombre, apellido, esp in medicos_seed:
             db.add(models.Medico(
