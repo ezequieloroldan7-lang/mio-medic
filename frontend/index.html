@@ -9,7 +9,7 @@
   <title>MIO MEDIC — Turnos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/css/styles.css?v=16"/>
+  <link rel="stylesheet" href="/static/css/styles.css?v=17"/>
 </head>
 <body>
 
@@ -46,6 +46,7 @@
       <div class="nav-item" data-view="view-pacientes"><span class="nav-icon">◎</span> Pacientes</div>
       <div class="nav-item" data-view="view-profesionales"><span class="nav-icon">✦</span> Profesionales</div>
       <div class="nav-divider admin-only"></div>
+      <div class="nav-item admin-only" data-view="view-personal"><span class="nav-icon">◍</span> Personal</div>
       <div class="nav-item admin-only" onclick="abrirSubirLogo();document.querySelector('.sidebar').classList.remove('open')"><span class="nav-icon">◨</span> Logo</div>
       <div class="nav-divider sidebar-user-mobile"></div>
       <div class="nav-item sidebar-user-mobile" id="sidebar-user-name" style="font-size:.78rem;color:#A89888;pointer-events:none;"></div>
@@ -148,9 +149,20 @@
     <div class="view" id="view-profesionales">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
         <div class="page-title" style="margin:0;border:none;padding:0">Profesionales</div>
-        <button class="btn btn-primary" onclick="abrirNuevoMedico()">+ Nuevo Profesional</button>
+        <button class="btn btn-primary admin-only" onclick="abrirNuevoMedico()">+ Nuevo Profesional</button>
       </div>
       <div class="prof-grid" id="prof-grid">
+        <div style="color:var(--muted);font-size:.85rem">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- PERSONAL (solo admin) -->
+    <div class="view" id="view-personal">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div class="page-title" style="margin:0;border:none;padding:0">Personal administrativo</div>
+        <button class="btn btn-primary" onclick="abrirNuevoPersonal()">+ Nuevo</button>
+      </div>
+      <div class="prof-grid" id="personal-grid">
         <div style="color:var(--muted);font-size:.85rem">Cargando...</div>
       </div>
     </div>
@@ -289,6 +301,36 @@
   </div>
 </div>
 
+<!-- MODAL: NUEVO/EDITAR PERSONAL -->
+<div class="modal-overlay" id="modal-personal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-personal-titulo">Nuevo Personal</span>
+      <button class="modal-close" onclick="cerrarModal('modal-personal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre *</label><input type="text" id="pers-nombre" style="text-transform:capitalize"/></div>
+        <div class="form-group"><label>Apellido *</label><input type="text" id="pers-apellido" style="text-transform:capitalize"/></div>
+        <div class="form-group"><label>Teléfono</label><input type="tel" id="pers-telefono" placeholder="+54 11 ..."/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="pers-email"/></div>
+        <div class="form-group"><label>Usuario *</label><input type="text" id="pers-username" autocomplete="off" style="text-transform:lowercase"/></div>
+        <div class="form-group" id="pers-password-group">
+          <label>Contraseña *</label>
+          <input type="text" id="pers-password" autocomplete="new-password" placeholder="Mínimo 4 caracteres"/>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.7rem;line-height:1.5">
+        El personal administrativo puede tomar turnos y gestionar pacientes, pero no puede modificar profesionales, personal ni la configuración del sistema.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-personal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPersonal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: AGREGAR HORARIO -->
 <div class="modal-overlay" id="modal-horario">
   <div class="modal" style="max-width:420px">
@@ -408,6 +450,6 @@
 </div>
 
 <div id="toast-container"></div>
-<script src="/static/js/app.js?v=16"></script>
+<script src="/static/js/app.js?v=17"></script>
 </body>
 </html>

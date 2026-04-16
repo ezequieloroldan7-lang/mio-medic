@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
+from auth import require_admin
 from database import get_db
 
 log = logging.getLogger("miomedic.medicos")
@@ -41,7 +42,11 @@ def listar_especialidades(db: Session = Depends(get_db)):
 
 
 @router.post("/especialidades", response_model=schemas.EspecialidadOut, status_code=201)
-def crear_especialidad(nombre: str, db: Session = Depends(get_db)):
+def crear_especialidad(
+    nombre: str,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     nombre = nombre.strip()
     if not nombre:
         raise HTTPException(400, "El nombre no puede estar vacío.")
@@ -78,7 +83,11 @@ def obtener_medico(medico_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/medicos", response_model=schemas.MedicoOut, status_code=201)
-def crear_medico(data: schemas.MedicoCreate, db: Session = Depends(get_db)):
+def crear_medico(
+    data: schemas.MedicoCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     m = models.Medico(**data.model_dump())
     db.add(m); db.commit(); db.refresh(m)
     # Auto-crear usuario para el profesional
@@ -102,7 +111,12 @@ def crear_medico(data: schemas.MedicoCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/medicos/{medico_id}", response_model=schemas.MedicoOut)
-def actualizar_medico(medico_id: int, data: schemas.MedicoCreate, db: Session = Depends(get_db)):
+def actualizar_medico(
+    medico_id: int,
+    data: schemas.MedicoCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
     if not m:
         raise HTTPException(404, "Médico no encontrado")
@@ -113,7 +127,12 @@ def actualizar_medico(medico_id: int, data: schemas.MedicoCreate, db: Session = 
 
 
 @router.delete("/medicos/{medico_id}", status_code=204)
-def eliminar_medico(medico_id: int, force: bool = False, db: Session = Depends(get_db)):
+def eliminar_medico(
+    medico_id: int,
+    force: bool = False,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
     if not m:
         raise HTTPException(404, "Médico no encontrado")
@@ -300,7 +319,12 @@ def listar_horarios(medico_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/medicos/{medico_id}/horarios", response_model=schemas.HorarioOut, status_code=201)
-def agregar_horario(medico_id: int, data: schemas.HorarioCreate, db: Session = Depends(get_db)):
+def agregar_horario(
+    medico_id: int,
+    data: schemas.HorarioCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     if data.hora_fin <= data.hora_inicio:
         raise HTTPException(400, "La hora de fin debe ser posterior a la de inicio.")
     if data.dia_semana < 0 or data.dia_semana > 4:
@@ -314,7 +338,11 @@ def agregar_horario(medico_id: int, data: schemas.HorarioCreate, db: Session = D
 
 
 @router.delete("/horarios/{horario_id}", status_code=204)
-def eliminar_horario(horario_id: int, db: Session = Depends(get_db)):
+def eliminar_horario(
+    horario_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     h = db.query(models.HorarioMedico).filter(models.HorarioMedico.id == horario_id).first()
     if not h:
         raise HTTPException(404, "Horario no encontrado")

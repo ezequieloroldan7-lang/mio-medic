@@ -99,9 +99,7 @@ body {
   letter-spacing: 1px; text-transform: uppercase;
 }
 
-.admin-only { display: none; }
-body.is-admin .admin-only { display: flex; }
-body.is-admin .nav-divider.admin-only { display: block; }
+body:not(.is-admin) .admin-only { display: none !important; }
 .header-divider { width: 1px; height: 28px; background: var(--border); }
 .header-sub {
   font-size: .62rem; color: var(--muted);
