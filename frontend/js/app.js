@@ -204,18 +204,25 @@ function populateSelects() {
   document.querySelectorAll(".sel-especialidad").forEach(s=>s.innerHTML=`<option value="">Seleccioná especialidad</option>`+eOpts);
 }
 
+/* ── Filtro por rol ─────────────────────────────────────── */
+const _isMedico = currentUser && currentUser.role === "medico" && currentUser.medico_id;
+function _filtrarPorRol(turnos) {
+  if (!_isMedico) return turnos;
+  return turnos.filter(t => t.medico_id === currentUser.medico_id);
+}
+
 /* ── Dashboard ──────────────────────────────────────────── */
 async function renderDashboard() {
   try {
-    const [resumen, todos] = await Promise.all([
-      api("/resumen"),
-      api(`/turnos?fecha=${new Date().toISOString().slice(0,10)}`),
-    ]);
-    $("dash-hoy").textContent         = resumen.hoy.total;
-    $("dash-pendientes").textContent  = resumen.hoy.pendientes;
-    $("dash-confirmados").textContent = resumen.hoy.confirmados;
-    $("dash-ausentes").textContent    = resumen.hoy.ausentes + (resumen.hoy.cancelados || 0);
-    if ($("dash-realizados")) $("dash-realizados").textContent = resumen.hoy.realizados;
+    const todos_raw = await api(`/turnos?fecha=${new Date().toISOString().slice(0,10)}`);
+    const todos = _filtrarPorRol(todos_raw);
+
+    const cnt = (estado) => todos.filter(t => t.estado === estado).length;
+    $("dash-hoy").textContent = todos.length;
+    $("dash-pendientes").textContent = cnt("pendiente");
+    $("dash-confirmados").textContent = cnt("confirmado");
+    $("dash-ausentes").textContent = cnt("ausente") + cnt("cancelado");
+    if ($("dash-realizados")) $("dash-realizados").textContent = cnt("realizado");
 
     $("dash-proximos").innerHTML = todos.length===0
       ? `<div style="text-align:center;color:var(--muted);padding:2rem;font-size:.85rem">Sin turnos para hoy</div>`
@@ -340,7 +347,8 @@ $("btn-agenda-next").addEventListener("click",()=>{const d=new Date($("agenda-fe
 /* ── Turnos ─────────────────────────────────────────────── */
 async function renderTurnos(q="") {
   const fecha=$("filtro-fecha")?.value||"";
-  const turnos=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
+  const turnos_raw=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
+  const turnos=_filtrarPorRol(turnos_raw);
   const f=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
   $("tabla-turnos").innerHTML=f.length===0
     ?`<div style="text-align:center;color:var(--muted);padding:2rem">Sin turnos</div>`
