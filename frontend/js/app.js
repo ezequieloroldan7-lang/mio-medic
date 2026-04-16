@@ -451,19 +451,18 @@ async function renderPacientes(q="") {
           const info = [];
           if (p.nro_hc) info.push(`HC: ${esc(p.nro_hc)}`);
           if (p.dni) info.push(`DNI: ${esc(p.dni)}`);
-          if (p.telefono) info.push(`WhatsApp: ${esc(p.telefono)}`);
+          if (p.telefono) info.push(esc(p.telefono));
           if (p.email) info.push(esc(p.email));
           if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
-          if (p.deriva) info.push(`Deriva: ${esc(p.deriva)}`);
-          const infoStr = info.length ? `<span class="dash-turno-info" style="display:inline-flex;gap:.6rem;flex-wrap:wrap;width:auto">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
-          return `<div class="dash-turno-card" style="align-items:center">
-            <span class="dash-turno-paciente" style="min-width:180px;flex:0 0 auto">${esc(p.apellido)}, ${esc(p.nombre)}</span>
-            <span class="dash-turno-actions" style="order:-1;display:flex;gap:.25rem">
+          const infoStr = info.length ? `<span style="font-size:.78rem;color:var(--muted);display:inline-flex;gap:.6rem;flex-wrap:wrap">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
+          return `<div class="dash-turno-card" style="align-items:center;flex-wrap:nowrap">
+            <span class="dash-turno-paciente" style="flex:0 0 auto;font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+            ${infoStr}
+            <span style="margin-left:auto;display:flex;gap:.25rem;flex-shrink:0">
               <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
               <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
               <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
             </span>
-            ${infoStr}
           </div>`;
         }).join("");
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
