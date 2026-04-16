@@ -585,11 +585,11 @@ async function agregarPacienteDesdeTurno() {
   const dni = $("turno-new-dni").value.trim();
   const tel = $("turno-new-tel").value.trim();
   if (!dni || !tel) { toast("DNI y Telefono son obligatorios para pacientes nuevos","error"); return; }
-  const partes = nombre_completo.split(/\s+/);
+  const partes = nombre_completo.toUpperCase().split(/\s+/);
   const apellido = partes[0] || "";
   const nombre = partes.slice(1).join(" ") || "";
-  const financiador = $("turno-financiador").value.toUpperCase().trim() || null;
-  const plan = $("turno-plan").value.trim() || null;
+  const financiador = $("turno-financiador").value.trim().toUpperCase() || null;
+  const plan = $("turno-plan").value.trim().toUpperCase() || null;
   const nro_hc = $("turno-new-hc").value.trim() || null;
   try {
     const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({nombre:nombre||apellido,apellido,dni,telefono:tel,nro_hc,financiador,plan})});
@@ -664,6 +664,14 @@ async function guardarTurno() {
   const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
   if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
   try{
+    // Actualizar financiador/plan del paciente si cambiaron
+    const fin=$("turno-financiador").value.trim().toUpperCase()||null;
+    const plan=$("turno-plan").value.trim().toUpperCase()||null;
+    const pac=pacientes.find(p=>p.id===pacienteId);
+    if(pac && (fin!==pac.financiador || plan!==pac.plan)){
+      await api(`/pacientes/${pacienteId}`,{method:"PUT",body:JSON.stringify({...pac,financiador:fin,plan:plan})});
+      pac.financiador=fin; pac.plan=plan;
+    }
     const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),observaciones:$("turno-obs").value||null};
     if(turnoEditing){
       await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
@@ -724,7 +732,7 @@ async function abrirEditarPaciente(id) {
   $("modal-paciente").classList.add("open");
 }
 async function guardarPaciente() {
-  const body={nombre:$("pac-nombre").value.trim(),apellido:$("pac-apellido").value.trim(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.toUpperCase().trim()||null,plan:$("pac-plan").value.trim()||null,deriva:$("pac-deriva").value.trim()||null};
+  const body={nombre:$("pac-nombre").value.trim().toUpperCase(),apellido:$("pac-apellido").value.trim().toUpperCase(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim().toLowerCase()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.trim().toUpperCase()||null,plan:$("pac-plan").value.trim().toUpperCase()||null,deriva:$("pac-deriva").value.trim().toUpperCase()||null};
   if(!body.nombre||!body.apellido){toast("Nombre y apellido son obligatorios.","error");return;}
   try{
     if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
