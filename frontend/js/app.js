@@ -165,7 +165,6 @@ function navTo(view) {
   if(view==="view-turnos")        renderTurnos();
   if(view==="view-dashboard")     renderDashboard();
   if(view==="view-profesionales") renderProfesionales();
-  if(view==="view-personal")      renderPersonal();
 }
 document.querySelectorAll(".nav-item[data-view]").forEach(el=>el.addEventListener("click",()=>navTo(el.dataset.view)));
 $("menu-toggle").addEventListener("click",()=>{
@@ -194,15 +193,9 @@ async function init() {
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
   }
-  // Admin: habilita Personal, Logo y ediciones de profesionales
+  // Si es admin, habilitar opciones admin-only (subir logo)
   if (currentUser && currentUser.role === "admin") {
     document.body.classList.add("is-admin");
-  }
-  // Etiqueta visual del rol en el sidebar/brand
-  const brand = document.querySelector(".sidebar-brand");
-  if (brand && currentUser) {
-    if (currentUser.role === "administrativo") brand.textContent = "Sistema de Turnos · Administrativo";
-    else if (currentUser.role === "admin")    brand.textContent = "Sistema de Turnos · Admin";
   }
 
   const [m, e, p] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
@@ -550,7 +543,7 @@ async function renderProfesionales() {
             <div class="prof-section-label">Horarios de atención</div>
             <div class="horario-list">${renderHorariosPills(m.horarios || [], m.id)}</div>
           </div>
-          <div class="prof-actions admin-only">
+          <div class="prof-actions">
             <button class="btn btn-sm btn-outline" onclick="abrirAgregarHorario(${m.id})">+ Horario</button>
             <button class="btn btn-sm btn-outline" onclick="abrirEditarMedico(${m.id})">Editar</button>
             <button class="btn btn-sm btn-danger" onclick="eliminarMedico(${m.id})">Eliminar</button>
@@ -564,7 +557,7 @@ function renderHorariosPills(horarios, medicoId) {
   if (!horarios.length) return `<span style="font-size:.75rem;color:var(--muted);font-style:italic">Sin horarios cargados</span>`;
   return horarios.slice().sort((a, b) => a.dia_semana - b.dia_semana).map(h =>
     `<span class="horario-pill">${DIAS[h.dia_semana].slice(0,3)} · ${esc(h.hora_inicio)}–${esc(h.hora_fin)} · C${h.consultorio}
-      <button class="admin-only" onclick="eliminarHorario(${h.id})" title="Eliminar">×</button></span>`
+      <button onclick="eliminarHorario(${h.id})" title="Eliminar">×</button></span>`
   ).join("");
 }
 
@@ -910,117 +903,6 @@ async function guardarPassword() {
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
-
-/* ── Personal administrativo (solo admin) ───────────────── */
-let personalEditing = null;
-
-async function renderPersonal() {
-  const grid = $("personal-grid");
-  try {
-    const lista = await api("/personal");
-    if (!lista) return;
-    if (!lista.length) {
-      grid.innerHTML = `<div class="empty-state"><span class="empty-state-icon">◍</span>Sin personal cargado. Agregá el primero con el botón "+ Nuevo".</div>`;
-      return;
-    }
-    grid.innerHTML = lista.map(p => {
-      const iniciales = ((p.nombre?.[0] || "") + (p.apellido?.[0] || "")).toUpperCase() || "·";
-      const infoRows = [];
-      infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">◐</span><span>Usuario: <b>${esc(p.username)}</b></span></div>`);
-      if (p.telefono) infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">☏</span><span>${esc(p.telefono)}</span></div>`);
-      if (p.email)    infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">✉</span><span>${esc(p.email)}</span></div>`);
-      return `
-        <div class="prof-card">
-          <div class="prof-head">
-            <div class="prof-avatar">${esc(iniciales)}</div>
-            <div class="prof-headinfo">
-              <div class="prof-nombre">${esc(p.nombre)} ${esc(p.apellido)}</div>
-              <div class="prof-esp">Administrativo</div>
-            </div>
-          </div>
-          <div class="prof-info">${infoRows.join("")}</div>
-          <div class="prof-actions">
-            <button class="btn btn-sm btn-outline" onclick="abrirEditarPersonal(${p.id})">Editar</button>
-            <button class="btn btn-sm btn-outline" onclick="resetearPasswordPersonal(${p.id}, '${esc(p.username)}')">Reset clave</button>
-            <button class="btn btn-sm btn-danger" onclick="eliminarPersonal(${p.id})">Eliminar</button>
-          </div>
-        </div>`;
-    }).join("");
-  } catch (e) {
-    toast("Error al cargar personal: " + e.message, "error");
-  }
-}
-
-function abrirNuevoPersonal() {
-  personalEditing = null;
-  $("modal-personal-titulo").textContent = "Nuevo Personal";
-  ["pers-nombre","pers-apellido","pers-telefono","pers-email","pers-username","pers-password"].forEach(id => $(id).value = "");
-  $("pers-password-group").style.display = "";
-  $("pers-username").disabled = false;
-  $("modal-personal").classList.add("open");
-}
-
-async function abrirEditarPersonal(id) {
-  try {
-    const lista = await api("/personal");
-    const p = lista.find(x => x.id === id);
-    if (!p) { toast("Personal no encontrado", "error"); return; }
-    personalEditing = id;
-    $("modal-personal-titulo").textContent = "Editar Personal";
-    $("pers-nombre").value   = p.nombre   || "";
-    $("pers-apellido").value = p.apellido || "";
-    $("pers-telefono").value = p.telefono || "";
-    $("pers-email").value    = p.email    || "";
-    $("pers-username").value = p.username || "";
-    $("pers-username").disabled = true;
-    $("pers-password").value = "";
-    $("pers-password-group").style.display = "none";
-    $("modal-personal").classList.add("open");
-  } catch (e) { toast(e.message, "error"); }
-}
-
-async function guardarPersonal() {
-  const body = {
-    nombre:   $("pers-nombre").value.trim(),
-    apellido: $("pers-apellido").value.trim(),
-    telefono: $("pers-telefono").value.trim() || null,
-    email:    $("pers-email").value.trim()    || null,
-    username: $("pers-username").value.trim().toLowerCase(),
-  };
-  if (!body.nombre || !body.apellido) { toast("Nombre y apellido son obligatorios", "error"); return; }
-  if (!body.username) { toast("El usuario es obligatorio", "error"); return; }
-
-  try {
-    if (personalEditing) {
-      await api(`/personal/${personalEditing}`, { method: "PUT", body: JSON.stringify(body) });
-      toast("Personal actualizado ✓", "success");
-    } else {
-      const pw = $("pers-password").value;
-      if (!pw || pw.length < 4) { toast("La contraseña debe tener al menos 4 caracteres", "error"); return; }
-      await api("/personal", { method: "POST", body: JSON.stringify({ ...body, password: pw }) });
-      toast("Personal creado ✓", "success");
-    }
-    cerrarModal("modal-personal");
-    renderPersonal();
-  } catch (e) { toast(e.message, "error"); }
-}
-
-async function eliminarPersonal(id) {
-  if (!confirm("¿Eliminar este personal? No se pueden recuperar sus datos.")) return;
-  try {
-    await api(`/personal/${id}`, { method: "DELETE" });
-    toast("Personal eliminado", "success");
-    renderPersonal();
-  } catch (e) { toast(e.message, "error"); }
-}
-
-async function resetearPasswordPersonal(id, username) {
-  if (!confirm(`¿Resetear la contraseña de "${username}" a "mio2026"?`)) return;
-  try {
-    const res = await api(`/personal/${id}/reset-password`, { method: "PUT" });
-    toast(res.detail, "success");
-  } catch (e) { toast(e.message, "error"); }
-}
 
 /* ── Logo / Branding ─────────────────────────────────────── */
 async function abrirSubirLogo() {
