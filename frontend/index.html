@@ -174,7 +174,7 @@
         <div class="form-group full">
           <label>Paciente *</label>
           <div style="display:flex;gap:.5rem;align-items:center;">
-            <input type="text" id="turno-paciente-input" placeholder="Apellido Nombre" autocomplete="off" style="flex:1"/>
+            <input type="text" id="turno-paciente-input" placeholder="Apellido Nombre" autocomplete="off" style="flex:1;text-transform:uppercase"/>
             <button type="button" id="btn-agregar-paciente" onclick="mostrarCamposPacienteNuevo()" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
           </div>
           <input type="hidden" id="turno-paciente-id"/>
@@ -191,7 +191,7 @@
         </div>
         <div class="form-group">
           <label>Plan</label>
-          <input type="text" id="turno-plan" placeholder="Ej: 210"/>
+          <input type="text" id="turno-plan" placeholder="Ej: 210" style="text-transform:uppercase"/>
         </div>
         <div class="form-group">
           <label>Profesional *</label>
@@ -247,15 +247,15 @@
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label>Nombre *</label><input type="text" id="pac-nombre"/></div>
-        <div class="form-group"><label>Apellido *</label><input type="text" id="pac-apellido"/></div>
+        <div class="form-group"><label>Nombre *</label><input type="text" id="pac-nombre" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Apellido *</label><input type="text" id="pac-apellido" style="text-transform:uppercase"/></div>
         <div class="form-group"><label>Teléfono</label><input type="tel" id="pac-tel" placeholder="+54 11 ..."/></div>
         <div class="form-group"><label>Email</label><input type="email" id="pac-email"/></div>
-        <div class="form-group"><label>DNI (opcional)</label><input type="text" id="pac-dni"/></div>
+        <div class="form-group"><label>DNI</label><input type="text" id="pac-dni"/></div>
         <div class="form-group"><label>N° Historia Clínica</label><input type="text" id="pac-hc"/></div>
         <div class="form-group"><label>Financiador</label><input type="text" id="pac-financiador" placeholder="Ej: OSDE, SWISS MEDICAL" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Plan</label><input type="text" id="pac-plan" placeholder="Ej: 210, PMI"/></div>
-        <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva"/></div>
+        <div class="form-group"><label>Plan</label><input type="text" id="pac-plan" placeholder="Ej: 210" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva" style="text-transform:uppercase"/></div>
       </div>
     </div>
     <div class="modal-footer">

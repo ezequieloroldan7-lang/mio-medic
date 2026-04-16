@@ -36,11 +36,19 @@ def obtener_paciente(paciente_id: int, db: Session = Depends(get_db)):
     if not p: raise HTTPException(404, "Paciente no encontrado")
     return p
 
+def _upper(d):
+    """Normaliza campos de texto del paciente a mayusculas."""
+    for k in ("nombre", "apellido", "financiador", "plan", "deriva"):
+        if d.get(k):
+            d[k] = d[k].upper()
+    if d.get("email"):
+        d["email"] = d["email"].lower()
+    return d
+
+
 @router.post("/", response_model=schemas.PacienteOut, status_code=201)
 def crear_paciente(data: schemas.PacienteCreate, db: Session = Depends(get_db)):
-    dump = data.model_dump()
-    if dump.get("financiador"):
-        dump["financiador"] = dump["financiador"].upper()
+    dump = _upper(data.model_dump())
     p = models.Paciente(**dump)
     db.add(p); db.commit(); db.refresh(p); return p
 
@@ -48,9 +56,7 @@ def crear_paciente(data: schemas.PacienteCreate, db: Session = Depends(get_db)):
 def actualizar_paciente(paciente_id: int, data: schemas.PacienteCreate, db: Session = Depends(get_db)):
     p = db.query(models.Paciente).filter(models.Paciente.id == paciente_id).first()
     if not p: raise HTTPException(404, "Paciente no encontrado")
-    payload = data.model_dump()
-    if payload.get("financiador"):
-        payload["financiador"] = payload["financiador"].upper()
+    payload = _upper(data.model_dump())
     for k, v in payload.items(): setattr(p, k, v)
     db.commit(); db.refresh(p); return p
 
