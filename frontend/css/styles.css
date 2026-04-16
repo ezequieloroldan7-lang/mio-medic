@@ -524,7 +524,7 @@ tr:hover td { background: #fbf8f4; }
 /* ── Toast ──────────────────────────────────────────────────── */
 #toast-container {
   position: fixed; bottom: 1.5rem; right: 1.5rem;
-  z-index: 300; display: flex; flex-direction: column; gap: .5rem;
+  z-index: 10001; display: flex; flex-direction: column; gap: .5rem;
 }
 .toast {
   background: var(--text);
