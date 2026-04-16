@@ -382,7 +382,7 @@ async function renderTurnos(q="") {
         <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)} — ${esc(t.medico?.especialidad?.nombre||"")}</span>
         <span class="badge badge-${t.estado}">${t.estado}</span>
         <span class="dash-turno-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-outline" onclick="abrirEditarTurno(${t.id})">Editar</button>
+          <button class="btn btn-sm btn-primary" onclick="abrirEditarTurno(${t.id})">Reprogramar</button>
           <button class="btn btn-sm btn-outline" onclick="cancelarTurno(${t.id})" style="color:var(--warning);border-color:var(--warning)">Cancelar</button>
           <button class="btn btn-sm btn-danger" onclick="eliminarTurno(${t.id})">Eliminar</button>
         </span>
@@ -712,6 +712,19 @@ async function guardarTurno() {
   const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
   if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
 
+  // Validar turno duplicado (mismo paciente mismo día)
+  if (!turnoEditing) {
+    const fechaTurno = $("turno-fecha-hora").value.slice(0, 10);
+    try {
+      const turnosDelDia = await api(`/turnos?fecha=${fechaTurno}`);
+      const duplicado = turnosDelDia.find(t => t.paciente_id === pacienteId && t.estado !== "cancelado");
+      if (duplicado) {
+        const hora = fmtHoraDisplay(duplicado.fecha_hora_inicio);
+        if (!confirm(`Este paciente ya tiene un turno el ${fechaTurno} a las ${hora}.\n\n¿Agendar otro turno de todas formas?`)) return;
+      }
+    } catch(e) { /* continuar si falla la validación */ }
+  }
+
   // Validar franja horaria del profesional
   const alertaHorario = _validarHorarioMedico(medicoId, $("turno-fecha-hora").value, parseInt($("turno-consultorio").value));
   if (alertaHorario && !confirm(alertaHorario + "\n\n¿Agendar de todas formas?")) return;
@@ -730,8 +743,24 @@ async function guardarTurno() {
       await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
       toast("Turno actualizado ✓","success");
     }else{
-      await api("/turnos",{method:"POST",body:JSON.stringify(body)});
-      toast("Turno creado ✓","success");
+      const turnoNuevo = await api("/turnos",{method:"POST",body:JSON.stringify(body)});
+      // Mostrar resumen del turno creado
+      const p = turnoNuevo?.paciente;
+      const m = turnoNuevo?.medico;
+      const dt = new Date(turnoNuevo.fecha_hora_inicio);
+      const resumen = $("turno-creado-resumen");
+      if (resumen) {
+        resumen.innerHTML = `
+          <div><strong>Paciente:</strong> ${esc(p?.apellido)}, ${esc(p?.nombre)}</div>
+          ${p?.telefono ? `<div><strong>WhatsApp:</strong> ${esc(p.telefono)}</div>` : ""}
+          <div><strong>Profesional:</strong> ${esc(m?.nombre)} ${esc(m?.apellido)} — ${esc(m?.especialidad?.nombre||"")}</div>
+          <div><strong>Fecha:</strong> ${fmtFecha(turnoNuevo.fecha_hora_inicio)}</div>
+          <div><strong>Hora:</strong> ${fmtHoraDisplay(turnoNuevo.fecha_hora_inicio)} — Consultorio ${turnoNuevo.consultorio}</div>
+          <div><strong>Duración:</strong> ${turnoNuevo.duracion_minutos} minutos</div>
+          ${turnoNuevo.observaciones ? `<div><strong>Obs:</strong> ${esc(turnoNuevo.observaciones)}</div>` : ""}
+        `;
+        $("modal-turno-creado").classList.add("open");
+      }
     }
     cerrarModal("modal-turno"); renderAgenda(); renderDashboard();
   }catch(e){toast(e.message,"error");}

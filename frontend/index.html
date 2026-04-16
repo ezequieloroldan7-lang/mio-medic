@@ -323,6 +323,22 @@
 
 <!-- FAB solo visible en agenda -->
 <button id="btn-fab" class="btn btn-primary fab" style="display:none" onclick="abrirNuevoTurno()">+ Turno</button>
+<!-- MODAL: TURNO CREADO -->
+<div class="modal-overlay" id="modal-turno-creado">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header" style="background:var(--success-lt);border-color:var(--success)">
+      <span class="modal-title" style="color:#4a7550">Turno agendado</span>
+      <button class="modal-close" onclick="cerrarModal('modal-turno-creado')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="turno-creado-resumen" style="font-size:.88rem;line-height:1.8"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-turno-creado')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: CAMBIAR CONTRASEÑA -->
 <div class="modal-overlay" id="modal-password">
   <div class="modal" style="max-width:380px">

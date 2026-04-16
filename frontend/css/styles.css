@@ -223,10 +223,13 @@ body {
 }
 .cal-col-header {
   text-align: center; font-weight: 600; font-size: .68rem;
-  color: var(--text-soft); background: var(--accent);
-  padding: .85rem; letter-spacing: 2.5px; text-transform: uppercase;
+  color: #fff; padding: .85rem; letter-spacing: 2.5px; text-transform: uppercase;
   border-bottom: 1px solid var(--border);
 }
+.cal-col-wrap:nth-child(1) .cal-col-header { background: #6B5B4F; }
+.cal-col-wrap:nth-child(2) .cal-col-header { background: #8B7355; }
+.cal-col-wrap:nth-child(1) .turno-chip { border-left-color: #6B5B4F; background: #f8f4f0; }
+.cal-col-wrap:nth-child(2) .turno-chip { border-left-color: #8B7355; background: #faf6f0; }
 
 /* Grid de slots de 15 min: altura fija por slot + contenedor relativo
    para que los chips de turno se posicionen en overlay absoluto. */
