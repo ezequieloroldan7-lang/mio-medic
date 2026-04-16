@@ -128,6 +128,33 @@ body {
 .nav-item.active .nav-icon { opacity: 1; }
 .nav-icon { font-size: .9rem; width: 18px; text-align: center; opacity: .75; }
 .nav-divider { height: 1px; background: var(--border); margin: .5rem .9rem; }
+.nav-kbd {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  color: var(--muted);
+  font-family: var(--font-display, inherit);
+  font-size: .65rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  opacity: .85;
+}
+.nav-item.active .nav-kbd {
+  background: rgba(255,255,255,.18);
+  border-color: rgba(255,255,255,.25);
+  color: #fff;
+  opacity: 1;
+}
+.fab-kbd {
+  margin-left: .5rem;
+  background: rgba(255,255,255,.18);
+  border-color: rgba(255,255,255,.25);
+  color: #fff;
+}
 
 /* ── Main ───────────────────────────────────────────────────── */
 .main { margin-left: var(--sidebar-w); flex: 1; padding: 2rem 2.25rem; max-width: 100%; }
@@ -703,6 +730,7 @@ tr:hover td { background: #fbf8f4; }
   .horario-pill button { min-width: 28px; min-height: 28px; font-size: 1rem; }
   .modal-close { width: 40px; height: 40px; font-size: 1.3rem; }
   th.sortable { min-height: 44px; }
+  .nav-kbd { display: none; }
 }
 
 /* ── Nav group (flechas juntas) ─────────────────────────────── */
