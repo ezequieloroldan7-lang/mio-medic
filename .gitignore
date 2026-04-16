@@ -1,0 +1,45 @@
+# Variables de entorno y secretos
+.env
+google-credentials
+google-credentials.json
+
+# Base de datos
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Datos sensibles de pacientes
+pacientes
+pacientes.*
+
+# Build artifacts
+build/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+env/
+.venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Claude config local
+.claude/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
