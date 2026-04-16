@@ -130,17 +130,8 @@
       <div class="search-bar">
         <input type="text" id="buscar-paciente" placeholder="Buscar por nombre, apellido, DNI o HC..."/>
       </div>
-      <div class="card" style="padding:0">
-        <div class="table-wrap">
-          <table id="tabla-pacientes-tabla">
-            <thead><tr>
-              <th class="sortable" data-sort="nro_hc">HC<span class="sort-arrow">↕</span></th>
-              <th class="sortable" data-sort="apellido">Paciente<span class="sort-arrow">↕</span></th>
-              <th>Teléfono</th><th>Email</th><th>Financiador</th><th>DNI</th><th></th>
-            </tr></thead>
-            <tbody id="tabla-pacientes"><tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
-          </table>
-        </div>
+      <div id="tabla-pacientes" class="dash-turnos-list">
+        <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
       </div>
     </div>
 

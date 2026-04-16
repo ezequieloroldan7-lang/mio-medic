@@ -435,35 +435,29 @@ async function renderPacientes(q="") {
   try {
     const lista = await api(q ? `/pacientes?q=${encodeURIComponent(q)}` : "/pacientes");
     const ordenados = _ordenarPacientes(lista);
-    _updateSortHeaders();
     $("pacientes-count").textContent = `${lista.length} pacientes`;
     $("tabla-pacientes").innerHTML = ordenados.length === 0
-      ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Sin resultados</td></tr>`
-      : ordenados.map(p => `<tr>
-          <td>${esc(p.nro_hc) || "—"}</td><td>${esc(p.apellido)}, ${esc(p.nombre)}</td>
-          <td>${esc(p.telefono) || "—"}</td><td>${esc(p.email) || "—"}</td>
-          <td>${esc(p.financiador) || "—"}${p.plan ? " — "+esc(p.plan) : ""}</td><td>${esc(p.dni) || "—"}</td>
-          <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
-            <button class="btn btn-sm btn-primary btn-icon" onclick="abrirNuevoTurnoPaciente(${p.id})" title="Nuevo turno">📅</button>
-          </td></tr>`).join("");
+      ? `<div style="text-align:center;color:var(--muted);padding:2rem">Sin resultados</div>`
+      : ordenados.map(p => {
+          const info = [];
+          if (p.nro_hc) info.push(`HC: ${esc(p.nro_hc)}`);
+          if (p.dni) info.push(`DNI: ${esc(p.dni)}`);
+          if (p.telefono) info.push(`WhatsApp: ${esc(p.telefono)}`);
+          if (p.email) info.push(esc(p.email));
+          if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
+          if (p.deriva) info.push(`Deriva: ${esc(p.deriva)}`);
+          return `<div class="dash-turno-card">
+            <span class="dash-turno-paciente" style="min-width:200px">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+            <span class="dash-turno-actions">
+              <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
+              <button class="btn btn-sm btn-primary btn-icon" onclick="abrirNuevoTurnoPaciente(${p.id})" title="Nuevo turno">+</button>
+            </span>
+            ${info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : ""}
+          </div>`;
+        }).join("");
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
 }
 $("buscar-paciente").addEventListener("input", e => renderPacientes(e.target.value));
-
-// Click en headers sortables
-document.addEventListener("click", e => {
-  const th = e.target.closest("#tabla-pacientes-tabla th.sortable");
-  if (!th) return;
-  const key = th.dataset.sort;
-  if (pacSort.key === key) {
-    pacSort.dir = pacSort.dir === "asc" ? "desc" : "asc";
-  } else {
-    pacSort.key = key;
-    pacSort.dir = "asc";
-  }
-  renderPacientes($("buscar-paciente").value);
-});
 
 /* ── Profesionales ──────────────────────────────────────── */
 async function renderProfesionales() {
