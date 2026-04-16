@@ -113,6 +113,38 @@ def _migrate_db():
     finally:
         db.close()
 
+    # Seed pacientes ficticios (una sola vez)
+    db = SessionLocal()
+    try:
+        if db.query(models.Paciente).filter(models.Paciente.nro_hc == "100").first():
+            pass
+        else:
+            pacientes_demo = [
+                ("GARCIA", "LAURA", "30456789", "5491134567890", "laura.garcia@gmail.com", "OSDE", "310"),
+                ("LOPEZ", "CARLOS", "28123456", "5491145678901", "carlos.lopez@hotmail.com", "SWISS MEDICAL", "SMG20"),
+                ("RODRIGUEZ", "ANA", "35678901", "5491156789012", "ana.rodriguez@gmail.com", "GALENO", "ORO"),
+                ("MARTINEZ", "DIEGO", "40234567", "5491167890123", None, "MEDIFE", "BRONCE"),
+                ("SANCHEZ", "VALENTINA", "42345678", "5491178901234", "valentina.sanchez@gmail.com", "OSDE", "210"),
+                ("DIAZ", "MARTIN", "33456789", "5491189012345", "martin.diaz@outlook.com", "PARTICULAR", None),
+                ("TORRES", "SOFIA", "38567890", "5491190123456", None, "SWISS MEDICAL", "SMG40"),
+                ("RAMIREZ", "NICOLAS", "29678901", "5491101234567", "nicolas.ramirez@gmail.com", "OMINT", "GLOBAL"),
+                ("FLORES", "CAMILA", "41789012", "5491112345678", "camila.flores@yahoo.com", "OSDE", "450"),
+                ("ACOSTA", "FACUNDO", "36890123", "5491123456789", None, "MEDICUS", "FAMILIAR"),
+            ]
+            for i, (ap, nom, dni, tel, email, fin, plan) in enumerate(pacientes_demo):
+                db.add(models.Paciente(
+                    apellido=ap, nombre=nom, dni=dni, telefono=tel,
+                    email=email, nro_hc=str(100 + i),
+                    financiador=fin, plan=plan,
+                ))
+            db.commit()
+            log.info("Seed: 10 pacientes ficticios cargados (HC 100-109).")
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.error("Error en seed pacientes: %s", e)
+    finally:
+        db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
