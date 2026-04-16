@@ -455,13 +455,15 @@ async function renderPacientes(q="") {
           if (p.email) info.push(esc(p.email));
           if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
           if (p.deriva) info.push(`Deriva: ${esc(p.deriva)}`);
-          return `<div class="dash-turno-card">
-            <span class="dash-turno-paciente" style="min-width:200px">${esc(p.apellido)}, ${esc(p.nombre)}</span>
-            <span class="dash-turno-actions">
-              <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
+          const infoStr = info.length ? `<span class="dash-turno-info" style="display:inline-flex;gap:.6rem;flex-wrap:wrap;width:auto">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
+          return `<div class="dash-turno-card" style="align-items:center">
+            <span class="dash-turno-paciente" style="min-width:180px;flex:0 0 auto">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+            <span class="dash-turno-actions" style="order:-1;display:flex;gap:.25rem">
               <button class="btn btn-sm btn-primary btn-icon" onclick="abrirNuevoTurnoPaciente(${p.id})" title="Nuevo turno">+</button>
+              <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
+              <button class="btn btn-sm btn-ghost btn-icon" onclick="eliminarPaciente(${p.id})" title="Eliminar">🗑</button>
             </span>
-            ${info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : ""}
+            ${infoStr}
           </div>`;
         }).join("");
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
@@ -754,6 +756,15 @@ async function guardarPaciente() {
     if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
     else{await api("/pacientes",{method:"POST",body:JSON.stringify(body)});toast("Paciente creado ✓","success");}
     cerrarModal("modal-paciente"); pacientes=await api("/pacientes"); populateSelects(); renderPacientes();
+  }catch(e){toast(e.message,"error");}
+}
+
+async function eliminarPaciente(id) {
+  if(!confirm("¿Eliminar este paciente y todos sus turnos?"))return;
+  try{
+    await api(`/pacientes/${id}`,{method:"DELETE"});
+    toast("Paciente eliminado","success");
+    pacientes=await api("/pacientes"); populateSelects(); renderPacientes();
   }catch(e){toast(e.message,"error");}
 }
 
