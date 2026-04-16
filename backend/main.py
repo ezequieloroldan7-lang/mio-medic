@@ -274,13 +274,6 @@ def _seed_admin_user():
     from auth import hash_password
     db = SessionLocal()
     try:
-        # Resetear password de admin
-        admin = db.query(models.User).filter(models.User.username == "mioturnos").first()
-        if admin:
-            admin.password_hash = hash_password("mio2026")
-            db.commit()
-            log.info("Password de mioturnos reseteada a mio2026.")
-
         # Admin / secretaria
         if not db.query(models.User).filter(models.User.username == "mioturnos").first():
             admin = models.User(
