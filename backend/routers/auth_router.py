@@ -14,7 +14,7 @@ def login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == data.username).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(401, "Usuario o contraseña incorrectos")
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 
