@@ -80,6 +80,18 @@ function initPacienteAutocomplete(inputId, hiddenId) {
     if ($("turno-financiador")) $("turno-financiador").value = p.financiador || "";
     if ($("turno-plan")) $("turno-plan").value = p.plan || "";
     if ($("btn-agregar-paciente")) $("btn-agregar-paciente").style.display = "none";
+    // Mostrar info del paciente
+    const infoEl = $("turno-pac-info");
+    if (infoEl) {
+      const parts = [];
+      if (p.nro_hc) parts.push(`HC: <span>${esc(p.nro_hc)}</span>`);
+      if (p.dni) parts.push(`DNI: <span>${esc(p.dni)}</span>`);
+      if (p.telefono) parts.push(`Tel: <span>${esc(p.telefono)}</span>`);
+      infoEl.innerHTML = parts.join(" &nbsp;|&nbsp; ");
+      infoEl.style.display = parts.length ? "flex" : "none";
+    }
+    // Ocultar campos de paciente nuevo
+    if ($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
   }
 
   function renderDrop(lista) {
@@ -202,26 +214,28 @@ async function renderDashboard() {
     $("dash-hoy").textContent         = resumen.hoy.total;
     $("dash-pendientes").textContent  = resumen.hoy.pendientes;
     $("dash-confirmados").textContent = resumen.hoy.confirmados;
-    $("dash-ausentes").textContent    = resumen.hoy.ausentes;
+    $("dash-ausentes").textContent    = resumen.hoy.ausentes + (resumen.hoy.cancelados || 0);
     if ($("dash-realizados")) $("dash-realizados").textContent = resumen.hoy.realizados;
-    if ($("dash-manana"))     $("dash-manana").textContent     = resumen.manana;
-    if ($("dash-semana"))     $("dash-semana").textContent     = resumen.semana;
 
     $("dash-proximos").innerHTML = todos.length===0
-      ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.82rem">Sin turnos para hoy</td></tr>`
+      ? `<div style="text-align:center;color:var(--muted);padding:2rem;font-size:.85rem">Sin turnos para hoy</div>`
       : todos.map(t => {
-          const obsCell = t.observaciones
-            ? `<td style="text-align:center" title="${esc(t.observaciones)}"><span style="cursor:help">📝</span></td>`
-            : `<td style="text-align:center;color:var(--border)">—</td>`;
-          return `<tr>
-            <td>${fmtHoraDisplay(t.fecha_hora_inicio)}</td>
-            <td>${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}</td>
-            <td>C${t.consultorio}</td>
-            <td>${esc(t.medico?.apellido)}</td>
-            <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
-            ${obsCell}
-            <td><button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarTurno(${t.id})">✏️</button></td>
-          </tr>`;
+          const p = t.paciente;
+          const obs = t.observaciones ? `<div class="dash-turno-obs">${esc(t.observaciones)}</div>` : "";
+          const info = [];
+          if (p?.financiador) info.push(p.financiador + (p.plan ? " — "+p.plan : ""));
+          if (p?.telefono) info.push(p.telefono);
+          const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${esc(i)}</span>`).join("")}</div>` : "";
+          return `<div class="dash-turno-card" onclick="abrirEditarTurno(${t.id})">
+            <span class="dash-turno-hora">${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
+            <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
+            <span class="dash-turno-consultorio">C${t.consultorio}</span>
+            <span class="dash-turno-medico">${esc(t.medico?.apellido)}</span>
+            <span class="badge badge-${t.estado}">${t.estado}</span>
+            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline btn-icon" onclick="event.stopPropagation();abrirEditarTurno(${t.id})">✏️</button></span>
+            ${infoHtml}
+            ${obs}
+          </div>`;
         }).join("");
   } catch(e){toast("Error al cargar dashboard: "+e.message,"error");}
 }
@@ -550,20 +564,46 @@ async function eliminarHorario(horarioId) {
 }
 
 /* ── Agregar paciente desde turno ───────────────────────── */
+async function mostrarCamposPacienteNuevo() {
+  const fields = $("turno-new-pac-fields");
+  if (!fields) return;
+  fields.classList.add("open");
+  $("btn-agregar-paciente").textContent = "Guardar paciente";
+  $("btn-agregar-paciente").onclick = agregarPacienteDesdeTurno;
+  // Auto-generar HC
+  try {
+    const res = await api("/pacientes/next-hc");
+    $("turno-new-hc").value = res.next_hc;
+  } catch(e) { $("turno-new-hc").value = ""; }
+  // Ocultar info de paciente existente
+  if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
+}
+
 async function agregarPacienteDesdeTurno() {
   const nombre_completo = $("turno-paciente-input").value.trim();
   if (!nombre_completo) { toast("Escribi el nombre del paciente","error"); return; }
+  const dni = $("turno-new-dni").value.trim();
+  const tel = $("turno-new-tel").value.trim();
+  if (!dni || !tel) { toast("DNI y Telefono son obligatorios para pacientes nuevos","error"); return; }
   const partes = nombre_completo.split(/\s+/);
   const apellido = partes[0] || "";
   const nombre = partes.slice(1).join(" ") || "";
   const financiador = $("turno-financiador").value.toUpperCase().trim() || null;
   const plan = $("turno-plan").value.trim() || null;
+  const nro_hc = $("turno-new-hc").value.trim() || null;
   try {
-    const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({nombre:nombre||apellido,apellido,financiador,plan})});
+    const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({nombre:nombre||apellido,apellido,dni,telefono:tel,nro_hc,financiador,plan})});
     pacientes.push(nuevo);
     $("turno-paciente-id").value = nuevo.id;
     $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
     $("btn-agregar-paciente").style.display = "none";
+    $("turno-new-pac-fields").classList.remove("open");
+    // Mostrar info
+    const infoEl = $("turno-pac-info");
+    if (infoEl) {
+      infoEl.innerHTML = `HC: <span>${esc(nuevo.nro_hc)}</span> &nbsp;|&nbsp; DNI: <span>${esc(nuevo.dni)}</span> &nbsp;|&nbsp; Tel: <span>${esc(nuevo.telefono)}</span>`;
+      infoEl.style.display = "flex";
+    }
     toast("Paciente agregado a la base de datos","success");
   } catch(e) { toast(e.message,"error"); }
 }
@@ -578,6 +618,13 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   $("turno-financiador").value=""; $("turno-plan").value="";
   $("turno-obs").value="";
   $("btn-agregar-paciente").style.display="none";
+  $("btn-agregar-paciente").textContent="+ Agregar paciente";
+  $("btn-agregar-paciente").onclick=mostrarCamposPacienteNuevo;
+  if($("turno-pac-info")) $("turno-pac-info").style.display="none";
+  if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
+  if($("turno-new-dni")) $("turno-new-dni").value="";
+  if($("turno-new-tel")) $("turno-new-tel").value="";
+  if($("turno-new-hc")) $("turno-new-hc").value="";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   // Preseleccionar medico si es profesional
   if (currentUser && currentUser.role==="medico" && currentUser.medico_id) $("turno-medico").value=currentUser.medico_id;
@@ -593,6 +640,18 @@ async function abrirEditarTurno(id) {
   $("turno-financiador").value=t.paciente?.financiador||""; $("turno-plan").value=t.paciente?.plan||"";
   $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
   $("btn-agregar-paciente").style.display="none";
+  if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
+  // Mostrar info del paciente
+  const p=t.paciente;
+  const infoEl=$("turno-pac-info");
+  if(infoEl && p){
+    const parts=[];
+    if(p.nro_hc)parts.push(`HC: <span>${esc(p.nro_hc)}</span>`);
+    if(p.dni)parts.push(`DNI: <span>${esc(p.dni)}</span>`);
+    if(p.telefono)parts.push(`Tel: <span>${esc(p.telefono)}</span>`);
+    infoEl.innerHTML=parts.join(" &nbsp;|&nbsp; ");
+    infoEl.style.display=parts.length?"flex":"none";
+  }
   $("modal-turno").classList.add("open");
 }
 function abrirNuevoTurnoPaciente(pacienteId) {

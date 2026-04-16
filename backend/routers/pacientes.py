@@ -1,10 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, Integer
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 import models, schemas
 
 router = APIRouter(prefix="/pacientes", tags=["pacientes"])
+
+
+@router.get("/next-hc")
+def siguiente_hc(db: Session = Depends(get_db)):
+    """Devuelve el siguiente numero de HC disponible."""
+    max_hc = db.query(func.max(func.cast(models.Paciente.nro_hc, Integer))).scalar()
+    return {"next_hc": str((max_hc or 0) + 1)}
 
 @router.get("/", response_model=List[schemas.PacienteOut])
 def listar_pacientes(

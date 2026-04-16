@@ -54,38 +54,27 @@
           <div class="stat-num" id="dash-hoy">—</div>
           <div class="stat-lbl">Turnos hoy</div>
         </div>
-        <div class="stat-card" style="border-color:var(--warning)">
-          <div class="stat-num" id="dash-pendientes" style="color:var(--warning)">—</div>
-          <div class="stat-lbl">Pendientes</div>
+        <div class="stat-card" style="border-color:#4a85b5">
+          <div class="stat-num" id="dash-realizados" style="color:#2a5f8a">—</div>
+          <div class="stat-lbl">Realizados</div>
         </div>
         <div class="stat-card" style="border-color:var(--success)">
           <div class="stat-num" id="dash-confirmados" style="color:var(--success)">—</div>
           <div class="stat-lbl">Confirmados</div>
         </div>
+        <div class="stat-card" style="border-color:var(--warning)">
+          <div class="stat-num" id="dash-pendientes" style="color:var(--warning)">—</div>
+          <div class="stat-lbl">Pendientes</div>
+        </div>
         <div class="stat-card" style="border-color:var(--danger)">
           <div class="stat-num" id="dash-ausentes" style="color:var(--danger)">—</div>
-          <div class="stat-lbl">Ausentes</div>
-        </div>
-        <div class="stat-card" style="border-color:#4a85b5">
-          <div class="stat-num" id="dash-realizados" style="color:#2a5f8a">—</div>
-          <div class="stat-lbl">Realizados</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="dash-manana">—</div>
-          <div class="stat-lbl">Mañana</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="dash-semana">—</div>
-          <div class="stat-lbl">Esta semana</div>
+          <div class="stat-lbl">Ausentes / Cancelados</div>
         </div>
       </div>
       <div class="card">
         <div class="card-title">Turnos de hoy</div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Hora</th><th>Paciente</th><th>Consultorio</th><th>Profesional</th><th>Estado</th><th style="width:38px;text-align:center" title="Observaciones">📝</th><th></th></tr></thead>
-            <tbody id="dash-proximos"><tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
-          </table>
+        <div id="dash-proximos" class="dash-turnos-list">
+          <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
         </div>
       </div>
     </div>
@@ -186,9 +175,15 @@
           <label>Paciente *</label>
           <div style="display:flex;gap:.5rem;align-items:center;">
             <input type="text" id="turno-paciente-input" placeholder="Apellido Nombre" autocomplete="off" style="flex:1"/>
-            <button type="button" id="btn-agregar-paciente" onclick="agregarPacienteDesdeTurno()" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
+            <button type="button" id="btn-agregar-paciente" onclick="mostrarCamposPacienteNuevo()" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
           </div>
           <input type="hidden" id="turno-paciente-id"/>
+          <div id="turno-pac-info" class="turno-pac-info" style="display:none"></div>
+          <div id="turno-new-pac-fields" class="turno-new-pac-fields">
+            <div class="form-group"><label>DNI *</label><input type="text" id="turno-new-dni" placeholder="DNI"/></div>
+            <div class="form-group"><label>Telefono *</label><input type="tel" id="turno-new-tel" placeholder="+54 11..."/></div>
+            <div class="form-group"><label>HC</label><input type="text" id="turno-new-hc" readonly style="background:#f5f0eb"/></div>
+          </div>
         </div>
         <div class="form-group">
           <label>Financiador</label>

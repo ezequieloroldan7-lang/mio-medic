@@ -175,10 +175,9 @@ def resumen(db: Session = Depends(get_db)):
             "pendientes":  _count(ini_hoy, fin_hoy, models.Turno.estado == models.EstadoTurno.pendiente),
             "confirmados": _count(ini_hoy, fin_hoy, models.Turno.estado == models.EstadoTurno.confirmado),
             "ausentes":    _count(ini_hoy, fin_hoy, models.Turno.estado == models.EstadoTurno.ausente),
+            "cancelados":  _count(ini_hoy, fin_hoy, models.Turno.estado == models.EstadoTurno.cancelado),
             "realizados":  _count(ini_hoy, fin_hoy, models.Turno.estado == models.EstadoTurno.realizado),
         },
-        "manana":   _count(ini_manana, fin_manana, activo),
-        "semana":   _count(ini_sem,    fin_sem,    activo),
         "pacientes_total": db.query(models.Paciente).count(),
     }
 
@@ -225,23 +224,49 @@ def _seed_datos_iniciales():
 
 
 def _seed_admin_user():
-    """Crea el usuario admin MIO TURNOS si no existe."""
+    """Crea el usuario admin MIO TURNOS y usuarios por profesional si no existen."""
     from auth import hash_password
     db = SessionLocal()
     try:
-        if db.query(models.User).filter(models.User.username == "mioturnos").first():
-            return
-        admin = models.User(
-            username="mioturnos",
-            password_hash=hash_password("mio2026"),
-            display_name="MIO TURNOS",
-            role="admin",
-        )
-        db.add(admin)
+        # Admin / secretaria
+        if not db.query(models.User).filter(models.User.username == "mioturnos").first():
+            admin = models.User(
+                username="mioturnos",
+                password_hash=hash_password("mio2026"),
+                display_name="MIO TURNOS",
+                role="admin",
+            )
+            db.add(admin)
+            db.commit()
+            log.info("Usuario admin 'mioturnos' creado (password: mio2026).")
+
+        # Un usuario por cada médico que no tenga usuario
+        medicos_sin_user = db.query(models.Medico).filter(
+            ~models.Medico.id.in_(
+                db.query(models.User.medico_id).filter(models.User.medico_id.isnot(None))
+            )
+        ).all()
+        for m in medicos_sin_user:
+            # Username: nombre.apellido en minusculas sin acentos
+            import unicodedata
+            def _clean(s):
+                s = unicodedata.normalize("NFD", s.lower())
+                return "".join(c for c in s if unicodedata.category(c) != "Mn").replace(" ", "")
+            username = f"{_clean(m.nombre)}.{_clean(m.apellido)}"
+            if db.query(models.User).filter(models.User.username == username).first():
+                continue
+            u = models.User(
+                username=username,
+                password_hash=hash_password("mio2026"),
+                display_name=f"Dr/a. {m.nombre} {m.apellido}",
+                role="medico",
+                medico_id=m.id,
+            )
+            db.add(u)
+            log.info("Usuario medico '%s' creado para %s %s", username, m.nombre, m.apellido)
         db.commit()
-        log.info("Usuario admin 'mioturnos' creado (password: mio2026).")
     except Exception as e:  # noqa: BLE001
         db.rollback()
-        log.error("Error creando admin: %s", e)
+        log.error("Error creando usuarios: %s", e)
     finally:
         db.close()
