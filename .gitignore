@@ -9,9 +9,10 @@ google-credentials.json
 *.db-wal
 *.db-journal
 
-# Datos sensibles de pacientes
-pacientes
-pacientes.*
+# Datos sensibles de pacientes (archivo Excel, no codigo .py)
+pacientes.xlsx
+pacientes.csv
+pacientes.xls
 
 # Build artifacts
 build/
