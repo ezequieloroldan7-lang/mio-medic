@@ -297,6 +297,37 @@ function populateSelects() {
   document.querySelectorAll(".sel-medico").forEach(s=>s.innerHTML=`<option value="">Seleccioná profesional</option>`+mOpts);
   const eOpts = especialidades.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
   document.querySelectorAll(".sel-especialidad").forEach(s=>s.innerHTML=`<option value="">Seleccioná especialidad</option>`+eOpts);
+  _populateFinanciadores();
+}
+
+/* ── Autocomplete financiador / plan ────────────────────── */
+const _FINANCIADORES_COMUNES = [
+  "PARTICULAR","OSDE","SWISS MEDICAL","GALENO","MEDIFE","OMINT",
+  "SANCOR SALUD","ACCORD SALUD","PREVENCION SALUD","MEDICUS",
+  "HOSPITAL ITALIANO","HOSPITAL ALEMAN","HOSPITAL BRITANICO",
+  "PAMI","IOMA","OSPLAD","OSECAC","OSDEPYM","UNION PERSONAL",
+  "FEDERADA SALUD","APROSS","WILLIAM HOPE","JERARQUICOS SALUD",
+  "LUIS PASTEUR","AVALIAN","QUALITAS","DOCTHOS","SCIS","SADAIC",
+];
+const _PLANES_COMUNES = [
+  "210","310","410","450","510","710","910",
+  "SB01","SB03","SB04","SB06","SMG01","SMG02","SMG03",
+  "AZUL","PLATA","ORO","BLACK","110","220","330","440",
+  "CLASSIC","PLUS","PREMIUM",
+  "1000","1500","2500","3500","4500",
+  "A2","A3","A4",
+];
+function _populateFinanciadores() {
+  const fin = new Set(_FINANCIADORES_COMUNES);
+  const pla = new Set(_PLANES_COMUNES);
+  (pacientes || []).forEach(p => {
+    if (p.financiador) fin.add(p.financiador.toUpperCase().trim());
+    if (p.plan)        pla.add(p.plan.toUpperCase().trim());
+  });
+  const dlFin = $("datalist-financiadores");
+  const dlPla = $("datalist-planes");
+  if (dlFin) dlFin.innerHTML = [...fin].sort().map(v => `<option value="${esc(v)}">`).join("");
+  if (dlPla) dlPla.innerHTML = [...pla].sort().map(v => `<option value="${esc(v)}">`).join("");
 }
 
 /* ── Filtro por rol ─────────────────────────────────────── */

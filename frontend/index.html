@@ -178,11 +178,11 @@
         </div>
         <div class="form-group">
           <label>Financiador</label>
-          <input type="text" id="turno-financiador" placeholder="Ej: OSDE" style="text-transform:uppercase"/>
+          <input type="text" id="turno-financiador" list="datalist-financiadores" placeholder="Ej: OSDE" autocomplete="off" style="text-transform:uppercase"/>
         </div>
         <div class="form-group">
           <label>Plan</label>
-          <input type="text" id="turno-plan" placeholder="Ej: 210" style="text-transform:uppercase"/>
+          <input type="text" id="turno-plan" list="datalist-planes" placeholder="Ej: 210" autocomplete="off" style="text-transform:uppercase"/>
         </div>
         <div class="form-group">
           <label>Profesional *</label>
@@ -244,8 +244,8 @@
         <div class="form-group"><label>Email</label><input type="email" id="pac-email" placeholder="paciente@correo.com"/></div>
         <div class="form-group"><label>DNI</label><input type="text" id="pac-dni" placeholder="Sin puntos"/></div>
         <div class="form-group"><label>N° Historia Clínica</label><input type="text" id="pac-hc" placeholder="Ej: 100"/></div>
-        <div class="form-group"><label>Financiador</label><input type="text" id="pac-financiador" placeholder="Ej: OSDE, SWISS MEDICAL" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Plan</label><input type="text" id="pac-plan" placeholder="Ej: 210" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Financiador</label><input type="text" id="pac-financiador" list="datalist-financiadores" placeholder="Ej: OSDE, SWISS MEDICAL" autocomplete="off" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Plan</label><input type="text" id="pac-plan" list="datalist-planes" placeholder="Ej: 210" autocomplete="off" style="text-transform:uppercase"/></div>
         <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva" placeholder="Nombre del derivante" style="text-transform:uppercase"/></div>
       </div>
     </div>
@@ -360,6 +360,8 @@
 </div>
 
 <div id="toast-container"></div>
-<script src="/static/js/app.js?v=11"></script>
+<datalist id="datalist-financiadores"></datalist>
+<datalist id="datalist-planes"></datalist>
+<script src="/static/js/app.js?v=12"></script>
 </body>
 </html>
