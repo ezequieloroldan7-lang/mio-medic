@@ -65,10 +65,14 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .header-logo {
-  font-family: var(--font-display);
-  font-size: 1.55rem; font-weight: 200;
-  letter-spacing: 10px; text-transform: uppercase;
-  color: var(--primary-dk);
+  width: 46px; height: 46px;
+  background-image: url("/static/img/logo.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+  /* Ocultar el texto "mio" pero dejarlo como fallback accesible */
+  text-indent: -9999px; overflow: hidden; white-space: nowrap;
+  flex-shrink: 0;
 }
 .header-divider { width: 1px; height: 28px; background: var(--border); }
 .header-sub {
@@ -665,7 +669,7 @@ tr:hover td { background: #fbf8f4; }
 @media (max-width: 768px) {
   /* Header */
   .header { padding: 0 .75rem; gap: .5rem; height: 56px; }
-  .header-logo { font-size: 1.3rem; letter-spacing: 7px; }
+  .header-logo { width: 40px; height: 40px; }
   .header-sub { display: none; }
   .header-divider { display: none; }
   .header-user-desktop { display: none !important; }
@@ -754,7 +758,7 @@ tr:hover td { background: #fbf8f4; }
   .stat-card { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; }
   .stat-num { font-size: 1.4rem; }
   .stat-lbl { margin-top: 0; }
-  .header-logo { font-size: 1.1rem; letter-spacing: 5px; }
+  .header-logo { width: 34px; height: 34px; }
   .prof-avatar { width: 42px; height: 42px; font-size: .88rem; }
   .prof-nombre { font-size: .9rem; }
 }

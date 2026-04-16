@@ -27,11 +27,13 @@
       text-align: center;
     }
     .login-logo {
-      font-size: 2.5rem;
-      font-weight: 200;
-      letter-spacing: .5rem;
-      color: #6B5B4F;
-      margin-bottom: .25rem;
+      width: 120px; height: 120px;
+      margin: 0 auto .25rem;
+      background-image: url("/static/img/logo.png");
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: contain;
+      text-indent: -9999px; overflow: hidden; white-space: nowrap;
     }
     .login-subtitle {
       font-size: .7rem;
@@ -92,7 +94,7 @@
 </head>
 <body>
   <div class="login-card">
-    <div class="login-logo">MIO</div>
+    <div class="login-logo" role="img" aria-label="MIO MEDIC">MIO</div>
     <div class="login-subtitle">Medicina Integral Oncologica & Estetica</div>
     <form id="login-form">
       <div class="form-group">
