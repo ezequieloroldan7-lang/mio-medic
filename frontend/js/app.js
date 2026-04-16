@@ -205,7 +205,7 @@ async function renderAgenda() {
   renderColumna(2,activos.filter(t=>t.consultorio===2),fecha);
 }
 
-const SLOT_MIN = 15;  // minutos por slot
+const SLOT_MIN = 30;  // minutos por slot
 
 function horasDisponibles() {
   const h = [];
