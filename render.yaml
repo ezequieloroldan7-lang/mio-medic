@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: miomedic-turnos
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_TEMPLATE_NAME
+        value: recordatorio_turno
+      - key: WHATSAPP_TEMPLATE_LANG
+        value: es_AR
+      - key: WHATSAPP_API_VERSION
+        value: v21.0
+    disk:
+      name: miomedic-data
+      mountPath: /backend
+      sizeGB: 1

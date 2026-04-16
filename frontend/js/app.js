@@ -1,0 +1,636 @@
+/* app.js — MIO MEDIC v8 */
+const API = "";
+const DIAS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+
+let medicos = [], especialidades = [], pacientes = [];
+let turnoEditing = null, pacienteEditing = null, medicoEditing = null, horarioParaMedicoId = null;
+
+/* Estado de ordenamiento de la tabla de pacientes */
+let pacSort = { key: "apellido", dir: "asc" };
+
+const $ = id => document.getElementById(id);
+
+/* ── Escape HTML (anti-XSS) ─────────────────────────────── */
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/* ── Reloj ──────────────────────────────────────────────── */
+function actualizarReloj() {
+  const now = new Date();
+  $("header-date").textContent = now.toLocaleDateString("es-AR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  $("header-time").textContent = now.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+}
+actualizarReloj();
+setInterval(actualizarReloj, 1000);
+
+/* ── Helpers ────────────────────────────────────────────── */
+function fmtHora(dt) { const d=new Date(dt); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function fmtHoraDisplay(dt) { return new Date(dt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false}); }
+function fmtFecha(dt)       { return new Date(dt).toLocaleDateString("es-AR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}); }
+function fmtFechaCorta(dt)  { return new Date(dt).toLocaleDateString("es-AR"); }
+
+function toast(msg, type="info") {
+  const el=document.createElement("div"); el.className=`toast ${type}`; el.textContent=msg;
+  $("toast-container").appendChild(el); setTimeout(()=>el.remove(),3500);
+}
+async function api(path, opts={}) {
+  const url = API + path;
+  const res = await fetch(url, {
+    headers: {"Content-Type":"application/json"},
+    cache: "no-store",
+    ...opts
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||"Error en el servidor");}
+  if(res.status===204)return null; return res.json();
+}
+
+/* ── Autocomplete de pacientes ──────────────────────────── */
+function initPacienteAutocomplete(inputId, hiddenId) {
+  const input  = $(inputId);
+  const hidden = $(hiddenId);
+  if (!input) return;
+
+  const drop = document.createElement("div");
+  drop.id = inputId + "-drop";
+  drop.style.cssText = `
+    position:absolute; z-index:500; background:#fff; border:1.5px solid var(--primary-lt);
+    border-radius:var(--radius); box-shadow:var(--shadow-lg); max-height:260px; overflow-y:auto;
+    width:100%; display:none; font-family:Raleway,sans-serif;
+  `;
+  input.parentElement.style.position = "relative";
+  input.parentElement.appendChild(drop);
+
+  function renderDrop(lista) {
+    if (!lista.length) { drop.style.display="none"; return; }
+    drop.innerHTML = lista.map(p => {
+      const hc = p.nro_hc ? ` · HC ${esc(p.nro_hc)}` : "";
+      const label = `${esc(p.apellido)} ${esc(p.nombre)}`;
+      return `<div class="pac-ac-item" data-id="${p.id}" data-label="${label}">
+        <span class="pac-ac-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+        <span class="pac-ac-hc">${hc}</span>
+      </div>`;
+    }).join("");
+    drop.style.display = "block";
+    drop.querySelectorAll(".pac-ac-item").forEach(el => {
+      el.addEventListener("mousedown", e => {
+        e.preventDefault();
+        input.value  = el.dataset.label;
+        hidden.value = el.dataset.id;
+        drop.style.display = "none";
+      });
+    });
+  }
+
+  input.addEventListener("input", function() {
+    const q = this.value.trim().toLowerCase();
+    hidden.value = "";
+    if (!q) { drop.style.display="none"; return; }
+    const filtered = pacientes.filter(p =>
+      p.apellido.toLowerCase().includes(q) ||
+      p.nombre.toLowerCase().includes(q)   ||
+      (p.nro_hc && p.nro_hc.toLowerCase().includes(q))
+    ).slice(0, 12);
+    renderDrop(filtered);
+  });
+
+  input.addEventListener("focus", function() {
+    if (this.value.trim()) this.dispatchEvent(new Event("input"));
+  });
+
+  document.addEventListener("click", e => {
+    if (!drop.contains(e.target) && e.target !== input) drop.style.display = "none";
+  });
+}
+
+/* ── CSS del autocomplete ───────────────────────────────── */
+const acStyle = document.createElement("style");
+acStyle.textContent = `
+  .pac-ac-item { display:flex; align-items:center; justify-content:space-between; padding:.55rem .85rem; cursor:pointer; font-size:.87rem; transition:background .1s; }
+  .pac-ac-item:hover { background:var(--accent); }
+  .pac-ac-nombre { font-weight:500; color:var(--text); }
+  .pac-ac-hc     { font-size:.75rem; color:var(--primary); font-weight:400; opacity:.8; }
+  .chip-nombre { font-weight:600; font-size:.8rem; }
+  .chip-esp    { font-size:.68rem; opacity:.75; font-weight:300; }
+  .chip-hc     { font-size:.67rem; color:var(--primary-dk); opacity:.65; font-weight:400; }
+`;
+document.head.appendChild(acStyle);
+
+/* ── Navegación ─────────────────────────────────────────── */
+function navTo(view) {
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  $(view).classList.add("active");
+  document.querySelector(`[data-view="${view}"]`)?.classList.add("active");
+  document.querySelector(".sidebar").classList.remove("open");
+  $("btn-fab").style.display = view==="view-agenda" ? "flex" : "none";
+  if(view==="view-agenda")        renderAgenda();
+  if(view==="view-pacientes")     renderPacientes();
+  if(view==="view-turnos")        renderTurnos();
+  if(view==="view-dashboard")     renderDashboard();
+  if(view==="view-profesionales") renderProfesionales();
+}
+document.querySelectorAll(".nav-item[data-view]").forEach(el=>el.addEventListener("click",()=>navTo(el.dataset.view)));
+$("menu-toggle").addEventListener("click",()=>{
+  document.querySelector(".sidebar").classList.toggle("open");
+});
+// Cerrar sidebar al tocar fuera (mobile)
+document.querySelector(".main").addEventListener("click",()=>{
+  document.querySelector(".sidebar").classList.remove("open");
+});
+
+/* ── Init ───────────────────────────────────────────────── */
+async function init() {
+  [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  populateSelects();
+  initPacienteAutocomplete("turno-paciente-input","turno-paciente-id");
+  renderDashboard();
+}
+
+function populateSelects() {
+  const mOpts = medicos.map(m=>`<option value="${m.id}">${esc(m.nombre)} ${esc(m.apellido)} — ${esc(m.especialidad?.nombre||"")}</option>`).join("");
+  document.querySelectorAll(".sel-medico").forEach(s=>s.innerHTML=`<option value="">Seleccioná profesional</option>`+mOpts);
+  const eOpts = especialidades.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
+  document.querySelectorAll(".sel-especialidad").forEach(s=>s.innerHTML=`<option value="">Seleccioná especialidad</option>`+eOpts);
+}
+
+/* ── Dashboard ──────────────────────────────────────────── */
+async function renderDashboard() {
+  try {
+    const [resumen, todos] = await Promise.all([
+      api("/resumen"),
+      api(`/turnos?fecha=${new Date().toISOString().slice(0,10)}`),
+    ]);
+    $("dash-hoy").textContent         = resumen.hoy.total;
+    $("dash-pendientes").textContent  = resumen.hoy.pendientes;
+    $("dash-confirmados").textContent = resumen.hoy.confirmados;
+    $("dash-ausentes").textContent    = resumen.hoy.ausentes;
+    if ($("dash-realizados")) $("dash-realizados").textContent = resumen.hoy.realizados;
+    if ($("dash-manana"))     $("dash-manana").textContent     = resumen.manana;
+    if ($("dash-semana"))     $("dash-semana").textContent     = resumen.semana;
+
+    $("dash-proximos").innerHTML = todos.length===0
+      ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.82rem">Sin turnos para hoy</td></tr>`
+      : todos.map(t => {
+          const obsCell = t.observaciones
+            ? `<td style="text-align:center" title="${esc(t.observaciones)}"><span style="cursor:help">📝</span></td>`
+            : `<td style="text-align:center;color:var(--border)">—</td>`;
+          return `<tr>
+            <td>${fmtHoraDisplay(t.fecha_hora_inicio)}</td>
+            <td>${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}</td>
+            <td>C${t.consultorio}</td>
+            <td>${esc(t.medico?.apellido)}</td>
+            <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
+            ${obsCell}
+            <td><button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarTurno(${t.id})">✏️</button></td>
+          </tr>`;
+        }).join("");
+  } catch(e){toast("Error al cargar dashboard: "+e.message,"error");}
+}
+
+/* ── Agenda ─────────────────────────────────────────────── */
+async function renderAgenda() {
+  const fecha=$("agenda-fecha").value||new Date().toISOString().slice(0,10);
+  $("agenda-fecha").value=fecha;
+  $("agenda-titulo").textContent=fmtFecha(fecha+"T12:00:00");
+  const turnos=await api(`/turnos?fecha=${fecha}`);
+  const activos=turnos.filter(t=>t.estado!=="cancelado");
+  renderColumna(1,activos.filter(t=>t.consultorio===1),fecha);
+  renderColumna(2,activos.filter(t=>t.consultorio===2),fecha);
+}
+
+const SLOT_MIN = 15;  // minutos por slot
+
+function horasDisponibles() {
+  const h = [];
+  for (let hr = 9; hr < 20; hr++) {
+    for (let m = 0; m < 60; m += SLOT_MIN) {
+      if (hr === 19 && m > 30) break;
+      h.push(`${String(hr).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+    }
+  }
+  return h;
+}
+
+function _slotIndexDeHora(hora) {
+  // "09:00" → 0, "09:15" → 1, ...
+  const [h, m] = hora.split(":").map(Number);
+  const base = 9 * 60;
+  return Math.round((h * 60 + m - base) / SLOT_MIN);
+}
+
+function renderColumna(consultorio, turnos, fecha) {
+  const grid = $(`grid-c${consultorio}`);
+  grid.innerHTML = "";
+  const horas = horasDisponibles();
+  const total = horas.length;
+
+  // Calcular qué slots quedan cubiertos por cada turno
+  const cubiertos = new Set();       // índices cubiertos (pero NO el inicial)
+  const turnosPorSlot = new Map();   // slotIdx inicial → turno
+  for (const t of turnos) {
+    const hIni = fmtHora(t.fecha_hora_inicio);
+    const idx = _slotIndexDeHora(hIni);
+    if (idx < 0 || idx >= total) continue;
+    const spans = Math.max(1, Math.ceil((t.duracion_minutos || SLOT_MIN) / SLOT_MIN));
+    turnosPorSlot.set(idx, { t, spans });
+    for (let i = idx + 1; i < Math.min(total, idx + spans); i++) cubiertos.add(i);
+  }
+
+  // Render de los slots (siempre todos, para mantener la grilla horaria)
+  horas.forEach((hora, i) => {
+    const esExacta = hora.endsWith(":00");
+    const slot = document.createElement("div");
+    slot.className = "time-slot"
+      + (esExacta ? " slot-exacta" : "")
+      + (cubiertos.has(i) ? " slot-cubierto" : "");
+    slot.innerHTML = `<span class="time-label${esExacta ? " exacta" : ""}">${hora}</span><span class="time-content"></span>`;
+    if (!turnosPorSlot.has(i) && !cubiertos.has(i)) {
+      slot.addEventListener("click", () => abrirNuevoTurno(consultorio, `${fecha}T${hora}`));
+    }
+    grid.appendChild(slot);
+  });
+
+  // Render de los chips como overlays absolutos encima de la grilla
+  for (const [idx, { t, spans }] of turnosPorSlot) {
+    const chip = document.createElement("div");
+    chip.className = `turno-chip chip-${t.estado}`;
+    chip.style.top = `calc(${idx} * var(--slot-h) + 3px)`;
+    chip.style.height = `calc(${spans} * var(--slot-h) - 6px)`;
+    chip.innerHTML = chipInnerHTML(t);
+    chip.addEventListener("click", e => { e.stopPropagation(); abrirEditarTurno(t.id); });
+    grid.appendChild(chip);
+  }
+}
+
+function chipInnerHTML(t) {
+  const hc   = t.paciente?.nro_hc ? `HC ${esc(t.paciente.nro_hc)}` : "";
+  const prof = `Dr/a. ${esc(t.medico?.apellido || "")}`;
+  const esp  = esc(t.medico?.especialidad?.nombre || "");
+  const hIni = fmtHora(t.fecha_hora_inicio);
+  const hFin = (() => {
+    const d = new Date(t.fecha_hora_inicio);
+    d.setMinutes(d.getMinutes() + (t.duracion_minutos || 0));
+    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  })();
+  const obsIcon = t.observaciones ? ` <span title="${esc(t.observaciones)}" style="opacity:.8">📝</span>` : "";
+  return `
+    <span class="chip-nombre">${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}${obsIcon}</span>
+    <span class="chip-hc">${hc}${hc ? " · " : ""}${hIni}–${hFin}</span>
+    <span class="chip-esp">${prof} · ${esp}</span>`;
+}
+
+$("agenda-fecha").addEventListener("change",renderAgenda);
+$("btn-agenda-hoy").addEventListener("click",()=>{$("agenda-fecha").value=new Date().toISOString().slice(0,10);renderAgenda();});
+$("btn-agenda-prev").addEventListener("click",()=>{const d=new Date($("agenda-fecha").value+"T12:00:00");d.setDate(d.getDate()-1);$("agenda-fecha").value=d.toISOString().slice(0,10);renderAgenda();});
+$("btn-agenda-next").addEventListener("click",()=>{const d=new Date($("agenda-fecha").value+"T12:00:00");d.setDate(d.getDate()+1);$("agenda-fecha").value=d.toISOString().slice(0,10);renderAgenda();});
+
+/* ── Turnos ─────────────────────────────────────────────── */
+async function renderTurnos(q="") {
+  const fecha=$("filtro-fecha")?.value||"";
+  const turnos=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
+  const f=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
+  $("tabla-turnos").innerHTML=f.length===0
+    ?`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sin turnos</td></tr>`
+    :f.map(t=>`<tr>
+        <td>${fmtFechaCorta(t.fecha_hora_inicio)}</td><td>${fmtHoraDisplay(t.fecha_hora_inicio)}</td>
+        <td>C${t.consultorio}</td><td>${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}</td>
+        <td>${esc(t.medico?.apellido)}</td><td>${esc(t.medico?.especialidad?.nombre||"")}</td>
+        <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
+        <td>${t.whatsapp_enviado?"✅":"—"}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarTurno(${t.id})" title="Editar">✏️</button>
+          <button class="btn btn-sm btn-outline btn-icon" onclick="cancelarTurno(${t.id})" title="Cancelar" style="color:var(--warning);border-color:var(--warning)">✕</button>
+          <button class="btn btn-sm btn-danger btn-icon" onclick="eliminarTurno(${t.id})" data-turno-del="${t.id}" title="Eliminar permanente">🗑️</button>
+        </td></tr>`).join("");
+}
+$("filtro-fecha")?.addEventListener("change",()=>renderTurnos());
+$("filtro-buscar-turno")?.addEventListener("input",e=>renderTurnos(e.target.value));
+
+/* ── Exportar CSV ───────────────────────────────────────── */
+function exportarTurnosCSV() {
+  const desde = prompt("Desde (YYYY-MM-DD). Dejar vacío para últimos 30 días:") || "";
+  const hasta = prompt("Hasta (YYYY-MM-DD). Dejar vacío para hoy:") || "";
+  const qs = [];
+  if (desde) qs.push("desde=" + encodeURIComponent(desde));
+  if (hasta) qs.push("hasta=" + encodeURIComponent(hasta));
+  window.open("/turnos/export.csv" + (qs.length?("?"+qs.join("&")):""), "_blank");
+}
+window.exportarTurnosCSV = exportarTurnosCSV;
+
+/* ── Pacientes ──────────────────────────────────────────── */
+function _pacVal(p, key) {
+  const v = p[key];
+  if (v === null || v === undefined || v === "") return null;
+  if (key === "nro_hc") {
+    const n = parseInt(v, 10);
+    return isNaN(n) ? null : n;
+  }
+  return v.toString().toLowerCase();
+}
+
+function _pacCmp(a, b, key, dir) {
+  const av = _pacVal(a, key);
+  const bv = _pacVal(b, key);
+  // Vacíos siempre al final, sin importar dirección
+  if (av === null && bv === null) return 0;
+  if (av === null) return 1;
+  if (bv === null) return -1;
+  let base;
+  if (typeof av === "number") base = av - bv;
+  else                        base = av.localeCompare(bv, "es");
+  return dir === "desc" ? -base : base;
+}
+
+function _ordenarPacientes(lista) {
+  const copia = lista.slice();
+  copia.sort((a, b) => {
+    const base = _pacCmp(a, b, pacSort.key, pacSort.dir);
+    if (base === 0 && pacSort.key !== "apellido") {
+      return _pacCmp(a, b, "apellido", "asc");
+    }
+    return base;
+  });
+  return copia;
+}
+
+function _updateSortHeaders() {
+  const thead = $("tabla-pacientes-tabla");
+  if (!thead) return;
+  thead.querySelectorAll("th.sortable").forEach(th => {
+    const active = th.dataset.sort === pacSort.key;
+    th.classList.toggle("sort-active", active);
+    const arrow = th.querySelector(".sort-arrow");
+    if (arrow) arrow.textContent = active ? (pacSort.dir === "asc" ? "↑" : "↓") : "↕";
+  });
+}
+
+async function renderPacientes(q="") {
+  try {
+    const lista = await api(q ? `/pacientes?q=${encodeURIComponent(q)}` : "/pacientes");
+    const ordenados = _ordenarPacientes(lista);
+    _updateSortHeaders();
+    $("pacientes-count").textContent = `${lista.length} pacientes`;
+    $("tabla-pacientes").innerHTML = ordenados.length === 0
+      ? `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Sin resultados</td></tr>`
+      : ordenados.map(p => `<tr>
+          <td>${esc(p.nro_hc) || "—"}</td><td>${esc(p.apellido)}, ${esc(p.nombre)}</td>
+          <td>${esc(p.telefono) || "—"}</td><td>${esc(p.email) || "—"}</td>
+          <td>${esc(p.cobertura) || "—"}</td><td>${esc(p.dni) || "—"}</td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
+            <button class="btn btn-sm btn-primary btn-icon" onclick="abrirNuevoTurnoPaciente(${p.id})" title="Nuevo turno">📅</button>
+          </td></tr>`).join("");
+  } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
+}
+$("buscar-paciente").addEventListener("input", e => renderPacientes(e.target.value));
+
+// Click en headers sortables
+document.addEventListener("click", e => {
+  const th = e.target.closest("#tabla-pacientes-tabla th.sortable");
+  if (!th) return;
+  const key = th.dataset.sort;
+  if (pacSort.key === key) {
+    pacSort.dir = pacSort.dir === "asc" ? "desc" : "asc";
+  } else {
+    pacSort.key = key;
+    pacSort.dir = "asc";
+  }
+  renderPacientes($("buscar-paciente").value);
+});
+
+/* ── Profesionales ──────────────────────────────────────── */
+async function renderProfesionales() {
+  try {
+    medicos = await api("/medicos");
+    const grid = $("prof-grid");
+    if (!medicos.length) {
+      grid.innerHTML = `<div class="empty-state"><span class="empty-state-icon">✦</span>No hay profesionales registrados</div>`;
+      return;
+    }
+    grid.innerHTML = medicos.map(m => {
+      const iniciales = ((m.nombre[0] || "") + (m.apellido[0] || "")).toUpperCase();
+      const infoRows = [];
+      if (m.matricula)          infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">◉</span><span>Mat. ${esc(m.matricula)}</span></div>`);
+      if (m.telefono)           infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">☏</span><span>${esc(m.telefono)}</span></div>`);
+      if (m.email)              infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">✉</span><span>${esc(m.email)}</span></div>`);
+      if (m.google_calendar_id) infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">📅</span><span style="color:var(--success);font-size:.72rem">GCal sincronizado</span></div>`);
+
+      return `
+        <div class="prof-card">
+          <div class="prof-head">
+            <div class="prof-avatar">${esc(iniciales)}</div>
+            <div class="prof-headinfo">
+              <div class="prof-nombre">${esc(m.nombre)} ${esc(m.apellido)}</div>
+              <div class="prof-esp">${esc(m.especialidad?.nombre || "Sin especialidad")}</div>
+            </div>
+          </div>
+          ${infoRows.length ? `<div class="prof-info">${infoRows.join("")}</div>` : ""}
+          <div class="prof-section">
+            <div class="prof-section-label">Horarios de atención</div>
+            <div class="horario-list">${renderHorariosPills(m.horarios || [], m.id)}</div>
+          </div>
+          <div class="prof-actions">
+            <button class="btn btn-sm btn-outline" onclick="abrirAgregarHorario(${m.id})">+ Horario</button>
+            <button class="btn btn-sm btn-outline" onclick="copiarLinkCalendario(${m.id})" title="Copiar link iCal para Google Calendar">📅 Calendario</button>
+            <button class="btn btn-sm btn-outline" onclick="abrirEditarMedico(${m.id})">Editar</button>
+            <button class="btn btn-sm btn-ghost btn-icon" onclick="eliminarMedico(${m.id})" title="Eliminar">🗑</button>
+          </div>
+        </div>`;
+    }).join("");
+  } catch (e) { toast("Error al cargar profesionales: " + e.message, "error"); }
+}
+
+function renderHorariosPills(horarios, medicoId) {
+  if (!horarios.length) return `<span style="font-size:.75rem;color:var(--muted);font-style:italic">Sin horarios cargados</span>`;
+  return horarios.slice().sort((a, b) => a.dia_semana - b.dia_semana).map(h =>
+    `<span class="horario-pill">${DIAS[h.dia_semana].slice(0,3)} · ${esc(h.hora_inicio)}–${esc(h.hora_fin)} · C${h.consultorio}
+      <button onclick="eliminarHorario(${h.id})" title="Eliminar">×</button></span>`
+  ).join("");
+}
+
+/* ── Link Calendario iCal ────────────────────────────────── */
+function copiarLinkCalendario(medicoId) {
+  const url = `${location.origin}/medicos/${medicoId}/calendario.ics`;
+  navigator.clipboard.writeText(url).then(() => {
+    toast("Link del calendario copiado al portapapeles. Pegalo en Google Calendar → Otros calendarios → Desde URL.", "success");
+  }).catch(() => {
+    // Fallback si clipboard no disponible (http sin https)
+    prompt("Copiá este link y pegalo en Google Calendar → Otros calendarios → Desde URL:", url);
+  });
+}
+window.copiarLinkCalendario = copiarLinkCalendario;
+
+/* ── Modal Médico ────────────────────────────────────────── */
+function abrirNuevoMedico() {
+  medicoEditing=null; $("modal-medico-titulo").textContent="Nuevo Profesional";
+  ["med-nombre","med-apellido","med-matricula","med-telefono","med-email","med-gcal"].forEach(id=>$(id).value="");
+  $("med-especialidad").value=""; $("modal-medico").classList.add("open");
+}
+async function abrirEditarMedico(id) {
+  const m=await api(`/medicos/${id}`); medicoEditing=id;
+  $("modal-medico-titulo").textContent="Editar Profesional";
+  $("med-nombre").value=m.nombre; $("med-apellido").value=m.apellido;
+  $("med-especialidad").value=m.especialidad_id; $("med-matricula").value=m.matricula||"";
+  $("med-telefono").value=m.telefono||""; $("med-email").value=m.email||"";
+  $("med-gcal").value=m.google_calendar_id||"";
+  $("modal-medico").classList.add("open");
+}
+async function guardarMedico() {
+  const body={nombre:$("med-nombre").value.trim(),apellido:$("med-apellido").value.trim(),especialidad_id:parseInt($("med-especialidad").value),matricula:$("med-matricula").value.trim()||null,telefono:$("med-telefono").value.trim()||null,email:$("med-email").value.trim()||null,google_calendar_id:$("med-gcal").value.trim()||null};
+  if(!body.nombre||!body.apellido||!body.especialidad_id){toast("Nombre, apellido y especialidad son obligatorios.","error");return;}
+  try{
+    if(medicoEditing){await api(`/medicos/${medicoEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Profesional actualizado ✓","success");}
+    else{await api("/medicos",{method:"POST",body:JSON.stringify(body)});toast("Profesional creado ✓","success");}
+    cerrarModal("modal-medico"); medicos=await api("/medicos"); populateSelects(); renderProfesionales();
+  }catch(e){toast(e.message,"error");}
+}
+async function eliminarMedico(id) {
+  if(!confirm("¿Eliminar este profesional?"))return;
+  try{await api(`/medicos/${id}`,{method:"DELETE"});toast("Profesional eliminado","success");medicos=await api("/medicos");populateSelects();renderProfesionales();}
+  catch(e){toast(e.message,"error");}
+}
+
+/* ── Modal Horario ───────────────────────────────────────── */
+function abrirAgregarHorario(medicoId) {
+  horarioParaMedicoId=medicoId;
+  $("hor-dia").value="0";$("hor-inicio").value="09:00";$("hor-fin").value="13:00";$("hor-consultorio").value="1";
+  $("modal-horario").classList.add("open");
+}
+async function guardarHorario() {
+  const body={dia_semana:parseInt($("hor-dia").value),hora_inicio:$("hor-inicio").value,hora_fin:$("hor-fin").value,consultorio:parseInt($("hor-consultorio").value)};
+  if(!body.hora_inicio||!body.hora_fin||body.hora_fin<=body.hora_inicio){toast("Horario inválido.","error");return;}
+  try{
+    await api(`/medicos/${horarioParaMedicoId}/horarios`,{method:"POST",body:JSON.stringify(body)});
+    toast("Horario agregado ✓","success"); cerrarModal("modal-horario"); medicos=await api("/medicos"); renderProfesionales();
+  }catch(e){toast(e.message,"error");}
+}
+async function eliminarHorario(horarioId) {
+  if(!confirm("¿Eliminar este horario?"))return;
+  try{await api(`/horarios/${horarioId}`,{method:"DELETE"});toast("Horario eliminado","success");medicos=await api("/medicos");renderProfesionales();}
+  catch(e){toast(e.message,"error");}
+}
+
+/* ── Modal Turno ─────────────────────────────────────────── */
+function abrirNuevoTurno(consultorio=1, fechaHora="") {
+  turnoEditing=null;
+  $("modal-turno-titulo").textContent="Nuevo Turno"; $("campo-estado").style.display="none";
+  $("turno-consultorio").value=consultorio; $("turno-fecha-hora").value=fechaHora;
+  $("turno-paciente-input").value=""; $("turno-paciente-id").value="";
+  $("turno-medico").value=""; $("turno-duracion").value="45"; $("turno-obs").value="";
+  const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
+  $("modal-turno").classList.add("open");
+}
+async function abrirEditarTurno(id) {
+  const t=await api(`/turnos/${id}`); turnoEditing=id;
+  $("modal-turno-titulo").textContent="Editar Turno"; $("campo-estado").style.display="flex";
+  $("turno-consultorio").value=t.consultorio; $("turno-fecha-hora").value=t.fecha_hora_inicio.slice(0,16);
+  $("turno-paciente-input").value=`${t.paciente?.apellido} ${t.paciente?.nombre}`;
+  $("turno-paciente-id").value=t.paciente_id;
+  $("turno-medico").value=t.medico_id; $("turno-duracion").value=t.duracion_minutos;
+  $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
+  $("modal-turno").classList.add("open");
+}
+function abrirNuevoTurnoPaciente(pacienteId) {
+  abrirNuevoTurno();
+  const p=pacientes.find(x=>x.id===pacienteId);
+  if(p){$("turno-paciente-input").value=`${p.apellido} ${p.nombre}`;$("turno-paciente-id").value=p.id;}
+  navTo("view-agenda");
+}
+async function guardarTurno() {
+  const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
+  if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
+  try{
+    const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),observaciones:$("turno-obs").value||null};
+    if(turnoEditing){
+      await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
+      toast("Turno actualizado ✓","success");
+    }else{
+      await api("/turnos",{method:"POST",body:JSON.stringify(body)});
+      toast("Turno creado ✓","success");
+    }
+    cerrarModal("modal-turno"); renderAgenda(); renderDashboard();
+  }catch(e){toast(e.message,"error");}
+}
+async function cancelarTurno(id) {
+  if(!confirm("¿Cancelar este turno?"))return;
+  try{
+    await api(`/turnos/${id}/cancelar`,{method:"DELETE"});
+    toast("Turno cancelado","success");
+    document.querySelectorAll("tr").forEach(tr=>{
+      if(tr.innerHTML.includes('cancelarTurno('+id+')')){
+        const badge = tr.querySelector(".badge");
+        if(badge){ badge.className="badge badge-cancelado"; badge.textContent="cancelado"; }
+      }
+    });
+    renderDashboard();
+  }catch(e){toast(e.message,"error");}
+}
+
+async function eliminarTurno(id) {
+  if(!confirm("¿Eliminar turno #"+id+" permanentemente?"))return;
+  try{
+    await api("/turnos/"+id, {method:"DELETE"});
+    toast("Turno eliminado ✓","success");
+    document.querySelectorAll("tr").forEach(tr=>{
+      if(tr.innerHTML.includes('eliminarTurno('+id+')')){
+        tr.style.opacity="0.3";
+        tr.style.transition="opacity 0.3s";
+        setTimeout(()=>tr.remove(), 300);
+      }
+    });
+    renderDashboard();
+  }catch(e){
+    toast("Error: "+e.message,"error");
+  }
+}
+
+/* ── Modal Paciente ─────────────────────────────────────── */
+function abrirNuevoPaciente() {
+  pacienteEditing=null; $("modal-paciente-titulo").textContent="Nuevo Paciente";
+  ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-cobertura","pac-deriva"].forEach(id=>$(id).value="");
+  $("modal-paciente").classList.add("open");
+}
+async function abrirEditarPaciente(id) {
+  const p=await api(`/pacientes/${id}`); pacienteEditing=id;
+  $("modal-paciente-titulo").textContent="Editar Paciente";
+  $("pac-nombre").value=p.nombre;$("pac-apellido").value=p.apellido;
+  $("pac-tel").value=p.telefono||"";$("pac-email").value=p.email||"";
+  $("pac-dni").value=p.dni||"";$("pac-hc").value=p.nro_hc||"";
+  $("pac-cobertura").value=p.cobertura||"";$("pac-deriva").value=p.deriva||"";
+  $("modal-paciente").classList.add("open");
+}
+async function guardarPaciente() {
+  const body={nombre:$("pac-nombre").value.trim(),apellido:$("pac-apellido").value.trim(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,cobertura:$("pac-cobertura").value.trim()||null,deriva:$("pac-deriva").value.trim()||null};
+  if(!body.nombre||!body.apellido){toast("Nombre y apellido son obligatorios.","error");return;}
+  try{
+    if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
+    else{await api("/pacientes",{method:"POST",body:JSON.stringify(body)});toast("Paciente creado ✓","success");}
+    cerrarModal("modal-paciente"); pacientes=await api("/pacientes"); populateSelects(); renderPacientes();
+  }catch(e){toast(e.message,"error");}
+}
+
+/* ── Atajos de teclado ──────────────────────────────────── */
+document.addEventListener("keydown", e=>{
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (e.key === "Escape") document.querySelectorAll(".modal-overlay.open").forEach(m=>m.classList.remove("open"));
+  if (e.key === "1") navTo("view-dashboard");
+  if (e.key === "2") navTo("view-agenda");
+  if (e.key === "3") navTo("view-turnos");
+  if (e.key === "4") navTo("view-pacientes");
+  if (e.key === "5") navTo("view-profesionales");
+  if (e.key.toLowerCase() === "n" && document.querySelector("#view-agenda.active")) abrirNuevoTurno();
+});
+
+/* ── Helpers ─────────────────────────────────────────────── */
+function cerrarModal(id){$(id).classList.remove("open");}
+document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
+$("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
+
+init().catch(e=>console.error("Error de inicio:",e));

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="theme-color" content="#FAF7F3"/>
+  <title>MIO MEDIC — Turnos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/css/styles.css?v=10"/>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <button class="menu-toggle" id="menu-toggle">☰</button>
+  <div class="header-logo">mio</div>
+  <div class="header-divider"></div>
+  <div class="header-sub">Medicina Integral<br>Oncológica &amp; Estética</div>
+  <div class="header-spacer"></div>
+  <div class="header-datetime">
+    <div class="header-date" id="header-date"></div>
+    <div class="header-time" id="header-time"></div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">Sistema de Turnos</div>
+    <nav>
+      <div class="nav-item active" data-view="view-dashboard"><span class="nav-icon">◈</span> Dashboard</div>
+      <div class="nav-item" data-view="view-agenda"><span class="nav-icon">◷</span> Agenda</div>
+      <div class="nav-item" data-view="view-turnos"><span class="nav-icon">≡</span> Turnos</div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-view="view-pacientes"><span class="nav-icon">◎</span> Pacientes</div>
+      <div class="nav-item" data-view="view-profesionales"><span class="nav-icon">✦</span> Profesionales</div>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-title">Dashboard — Hoy</div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" id="dash-hoy">—</div>
+          <div class="stat-lbl">Turnos hoy</div>
+        </div>
+        <div class="stat-card" style="border-color:var(--warning)">
+          <div class="stat-num" id="dash-pendientes" style="color:var(--warning)">—</div>
+          <div class="stat-lbl">Pendientes</div>
+        </div>
+        <div class="stat-card" style="border-color:var(--success)">
+          <div class="stat-num" id="dash-confirmados" style="color:var(--success)">—</div>
+          <div class="stat-lbl">Confirmados</div>
+        </div>
+        <div class="stat-card" style="border-color:var(--danger)">
+          <div class="stat-num" id="dash-ausentes" style="color:var(--danger)">—</div>
+          <div class="stat-lbl">Ausentes</div>
+        </div>
+        <div class="stat-card" style="border-color:#4a85b5">
+          <div class="stat-num" id="dash-realizados" style="color:#2a5f8a">—</div>
+          <div class="stat-lbl">Realizados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="dash-manana">—</div>
+          <div class="stat-lbl">Mañana</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="dash-semana">—</div>
+          <div class="stat-lbl">Esta semana</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Turnos de hoy</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Hora</th><th>Paciente</th><th>Consultorio</th><th>Profesional</th><th>Estado</th><th style="width:38px;text-align:center" title="Observaciones">📝</th><th></th></tr></thead>
+            <tbody id="dash-proximos"><tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AGENDA -->
+    <div class="view" id="view-agenda">
+      <div class="cal-toolbar">
+        <div class="cal-nav-group">
+          <button class="btn btn-outline btn-icon" id="btn-agenda-prev">◀</button>
+          <button class="btn btn-outline btn-icon" id="btn-agenda-next">▶</button>
+        </div>
+        <input type="date" id="agenda-fecha"/>
+        <button class="btn btn-outline" id="btn-agenda-hoy">Hoy</button>
+        <span class="cal-fecha-titulo" id="agenda-titulo"></span>
+      </div>
+      <div class="cal-cols">
+        <div class="cal-col-wrap">
+          <div class="cal-col-header">Consultorio 1</div>
+          <div class="time-grid" id="grid-c1"></div>
+        </div>
+        <div class="cal-col-wrap">
+          <div class="cal-col-header">Consultorio 2</div>
+          <div class="time-grid" id="grid-c2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TURNOS -->
+    <div class="view" id="view-turnos">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div class="page-title" style="margin:0;border:none;padding:0">Lista de Turnos</div>
+        <button class="btn btn-outline" onclick="exportarTurnosCSV()">⬇ Exportar CSV</button>
+      </div>
+      <div class="search-bar">
+        <input type="date" id="filtro-fecha"/>
+        <input type="text" id="filtro-buscar-turno" placeholder="Buscar paciente..." style="max-width:220px"/>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>C.</th><th>Paciente</th><th>Profesional</th><th>Especialidad</th><th>Estado</th><th>WA</th><th></th></tr></thead>
+            <tbody id="tabla-turnos"><tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACIENTES -->
+    <div class="view" id="view-pacientes">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div class="page-title" style="margin:0;border:none;padding:0">Pacientes</div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <span id="pacientes-count" style="font-size:.78rem;color:var(--muted)"></span>
+          <button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="buscar-paciente" placeholder="Buscar por nombre, apellido, DNI o HC..."/>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="table-wrap">
+          <table id="tabla-pacientes-tabla">
+            <thead><tr>
+              <th class="sortable" data-sort="nro_hc">HC<span class="sort-arrow">↕</span></th>
+              <th class="sortable" data-sort="apellido">Paciente<span class="sort-arrow">↕</span></th>
+              <th>Teléfono</th><th>Email</th><th>Cobertura</th><th>DNI</th><th></th>
+            </tr></thead>
+            <tbody id="tabla-pacientes"><tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFESIONALES -->
+    <div class="view" id="view-profesionales">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div class="page-title" style="margin:0;border:none;padding:0">Profesionales</div>
+        <button class="btn btn-primary" onclick="abrirNuevoMedico()">+ Nuevo Profesional</button>
+      </div>
+      <div class="prof-grid" id="prof-grid">
+        <div style="color:var(--muted);font-size:.85rem">Cargando...</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: NUEVO/EDITAR TURNO -->
+<div class="modal-overlay" id="modal-turno">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-turno-titulo">Nuevo Turno</span>
+      <button class="modal-close" onclick="cerrarModal('modal-turno')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Paciente *</label>
+          <input type="text" id="turno-paciente-input" list="dl-pacientes" placeholder="Apellido Nombre" autocomplete="off"/>
+          <datalist id="dl-pacientes"></datalist>
+          <input type="hidden" id="turno-paciente-id"/>
+        </div>
+        <div class="form-group">
+          <label>Profesional *</label>
+          <select id="turno-medico" class="sel-medico"></select>
+        </div>
+        <div class="form-group">
+          <label>Consultorio *</label>
+          <select id="turno-consultorio">
+            <option value="1">Consultorio 1</option>
+            <option value="2">Consultorio 2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha y hora *</label>
+          <input type="datetime-local" id="turno-fecha-hora"/>
+        </div>
+        <div class="form-group">
+          <label>Duración</label>
+          <select id="turno-duracion">
+            <option value="45">45 minutos</option>
+            <option value="60">60 minutos</option>
+          </select>
+        </div>
+        <div class="form-group" id="campo-estado" style="display:none">
+          <label>Estado</label>
+          <select id="turno-estado">
+            <option value="pendiente">Pendiente</option>
+            <option value="confirmado">Confirmado</option>
+            <option value="cancelado">Cancelado</option>
+            <option value="ausente">Ausente</option>
+            <option value="realizado">Realizado</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <textarea id="turno-obs" placeholder="Notas adicionales..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-turno')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarTurno()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO/EDITAR PACIENTE -->
+<div class="modal-overlay" id="modal-paciente">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-paciente-titulo">Nuevo Paciente</span>
+      <button class="modal-close" onclick="cerrarModal('modal-paciente')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre *</label><input type="text" id="pac-nombre"/></div>
+        <div class="form-group"><label>Apellido *</label><input type="text" id="pac-apellido"/></div>
+        <div class="form-group"><label>Teléfono</label><input type="tel" id="pac-tel" placeholder="+54 11 ..."/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="pac-email"/></div>
+        <div class="form-group"><label>DNI (opcional)</label><input type="text" id="pac-dni"/></div>
+        <div class="form-group"><label>N° Historia Clínica</label><input type="text" id="pac-hc"/></div>
+        <div class="form-group"><label>Cobertura / Obra Social</label><input type="text" id="pac-cobertura"/></div>
+        <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-paciente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPaciente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO/EDITAR PROFESIONAL -->
+<div class="modal-overlay" id="modal-medico">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-medico-titulo">Nuevo Profesional</span>
+      <button class="modal-close" onclick="cerrarModal('modal-medico')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre *</label><input type="text" id="med-nombre"/></div>
+        <div class="form-group"><label>Apellido *</label><input type="text" id="med-apellido"/></div>
+        <div class="form-group">
+          <label>Especialidad *</label>
+          <select id="med-especialidad" class="sel-especialidad"></select>
+        </div>
+        <div class="form-group"><label>Matrícula</label><input type="text" id="med-matricula" placeholder="MP 12345"/></div>
+        <div class="form-group"><label>Teléfono</label><input type="tel" id="med-telefono"/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="med-email"/></div>
+        <div class="form-group full"><label>Email Google Calendar (para sincronizar turnos)</label><input type="email" id="med-gcal" placeholder="dr.apellido@gmail.com — dejá vacío si no querés sincronizar"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-medico')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarMedico()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: AGREGAR HORARIO -->
+<div class="modal-overlay" id="modal-horario">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Agregar Horario</span>
+      <button class="modal-close" onclick="cerrarModal('modal-horario')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Día</label>
+          <select id="hor-dia">
+            <option value="0">Lunes</option>
+            <option value="1">Martes</option>
+            <option value="2">Miércoles</option>
+            <option value="3">Jueves</option>
+            <option value="4">Viernes</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Desde</label><input type="time" id="hor-inicio" value="09:00"/></div>
+        <div class="form-group"><label>Hasta</label><input type="time" id="hor-fin" value="13:00"/></div>
+        <div class="form-group full">
+          <label>Consultorio</label>
+          <select id="hor-consultorio">
+            <option value="1">Consultorio 1</option>
+            <option value="2">Consultorio 2</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-horario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarHorario()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAB solo visible en agenda -->
+<button id="btn-fab" class="btn btn-primary fab" style="display:none" onclick="abrirNuevoTurno()">+ Turno</button>
+<div id="toast-container"></div>
+<script src="/static/js/app.js?v=10"></script>
+</body>
+</html>
