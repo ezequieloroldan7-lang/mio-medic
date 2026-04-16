@@ -768,7 +768,14 @@ async function cancelarTurno(id) {
 }
 
 async function eliminarTurno(id) {
-  if(!confirm("¿Eliminar turno #"+id+" permanentemente?"))return;
+  let t;
+  try { t = await api("/turnos/"+id); }
+  catch(e){ toast("No se pudo cargar el turno: "+e.message,"error"); return; }
+  const paciente = `${t.paciente?.apellido||""} ${t.paciente?.nombre||""}`.trim() || "paciente desconocido";
+  const fechaHora = `${fmtFechaCorta(t.fecha_hora_inicio)} a las ${fmtHoraDisplay(t.fecha_hora_inicio)} hs`;
+  const medico = t.medico ? `Dr/a. ${t.medico.nombre} ${t.medico.apellido}` : "";
+  const msg = `¿Eliminar el turno de ${paciente}\n${fechaHora}${medico?` — ${medico}`:""}?\n\nEsta acción no se puede deshacer.`;
+  if(!confirm(msg))return;
   try{
     await api("/turnos/"+id, {method:"DELETE"});
     toast("Turno eliminado ✓","success");
