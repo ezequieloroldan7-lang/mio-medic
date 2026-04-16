@@ -523,7 +523,7 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   $("modal-turno-titulo").textContent="Nuevo Turno"; $("campo-estado").style.display="none";
   $("turno-consultorio").value=consultorio; $("turno-fecha-hora").value=fechaHora;
   $("turno-paciente-input").value=""; $("turno-paciente-id").value="";
-  $("turno-medico").value=""; $("turno-duracion").value="45"; $("turno-obs").value="";
+  $("turno-medico").value=""; $("turno-duracion").value="45"; $("turno-financiador").value=""; $("turno-plan").value=""; $("turno-obs").value="";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   $("modal-turno").classList.add("open");
 }
@@ -534,6 +534,7 @@ async function abrirEditarTurno(id) {
   $("turno-paciente-input").value=`${t.paciente?.apellido} ${t.paciente?.nombre}`;
   $("turno-paciente-id").value=t.paciente_id;
   $("turno-medico").value=t.medico_id; $("turno-duracion").value=t.duracion_minutos;
+  $("turno-financiador").value=t.financiador||""; $("turno-plan").value=t.plan||"";
   $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
   $("modal-turno").classList.add("open");
 }
@@ -547,7 +548,7 @@ async function guardarTurno() {
   const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
   if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
   try{
-    const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),observaciones:$("turno-obs").value||null};
+    const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),financiador:$("turno-financiador").value.toUpperCase()||null,plan:$("turno-plan").value||null,observaciones:$("turno-obs").value||null};
     if(turnoEditing){
       await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
       toast("Turno actualizado ✓","success");

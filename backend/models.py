@@ -68,6 +68,8 @@ class Turno(Base):
     fecha_hora_inicio = Column(DateTime, nullable=False, index=True)
     duracion_minutos  = Column(Integer, default=45)
     estado            = Column(Enum(EstadoTurno), default=EstadoTurno.pendiente, index=True)
+    financiador       = Column(String)
+    plan              = Column(String)
     observaciones     = Column(String)
     whatsapp_enviado  = Column(Boolean, default=False, index=True)
     google_event_id   = Column(String)   # ID del evento en Google Calendar

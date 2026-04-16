@@ -298,7 +298,10 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
     if _hay_solapamiento(db, data.consultorio, data.fecha_hora_inicio, data.duracion_minutos):
         raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
-    t = models.Turno(**data.model_dump())
+    dump = data.model_dump()
+    if dump.get("financiador"):
+        dump["financiador"] = dump["financiador"].upper()
+    t = models.Turno(**dump)
     db.add(t)
     db.commit()
     db.refresh(t)
@@ -353,6 +356,8 @@ def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Dep
         ):
             raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
+    if payload.get("financiador"):
+        payload["financiador"] = payload["financiador"].upper()
     for k, v in payload.items():
         setattr(t, k, v)
     db.commit()

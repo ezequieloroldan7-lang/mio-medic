@@ -47,6 +47,7 @@ class MedicoOut(MedicoBase):
 class TurnoBase(BaseModel):
     paciente_id: int; medico_id: int; consultorio: int
     fecha_hora_inicio: datetime; duracion_minutos: int = 45
+    financiador: Optional[str]=None; plan: Optional[str]=None
     observaciones: Optional[str]=None
 
 class TurnoCreate(TurnoBase): pass
@@ -57,6 +58,8 @@ class TurnoUpdate(BaseModel):
     fecha_hora_inicio: Optional[datetime]    = None
     duracion_minutos:  Optional[int]         = None
     estado:            Optional[EstadoTurno] = None
+    financiador:       Optional[str]         = None
+    plan:              Optional[str]         = None
     observaciones:     Optional[str]         = None
 
 class TurnoOut(TurnoBase):
