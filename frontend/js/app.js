@@ -1,4 +1,4 @@
-/* app.js — MIO MEDIC v8 */
+/* app.js — MIO MEDIC v9 */
 const API = "";
 const DIAS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
 
@@ -7,6 +7,10 @@ let turnoEditing = null, pacienteEditing = null, medicoEditing = null, horarioPa
 
 /* Estado de ordenamiento de la tabla de pacientes */
 let pacSort = { key: "apellido", dir: "asc" };
+
+/* ── Auth ──────────────────────────────────────────────── */
+const currentUser = JSON.parse(localStorage.getItem("user") || "null");
+if (!localStorage.getItem("token")) { window.location.href = "/login"; }
 
 const $ = id => document.getElementById(id);
 
@@ -40,13 +44,15 @@ function toast(msg, type="info") {
   const el=document.createElement("div"); el.className=`toast ${type}`; el.textContent=msg;
   $("toast-container").appendChild(el); setTimeout(()=>el.remove(),3500);
 }
+function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.href="/login"; }
+
 async function api(path, opts={}) {
   const url = API + path;
-  const res = await fetch(url, {
-    headers: {"Content-Type":"application/json"},
-    cache: "no-store",
-    ...opts
-  });
+  const token = localStorage.getItem("token");
+  const headers = {"Content-Type":"application/json"};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(url, { headers, cache: "no-store", ...opts });
+  if(res.status===401){ logout(); return; }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||"Error en el servidor");}
   if(res.status===204)return null; return res.json();
 }
@@ -67,6 +73,15 @@ function initPacienteAutocomplete(inputId, hiddenId) {
   input.parentElement.style.position = "relative";
   input.parentElement.appendChild(drop);
 
+  function _onSelectPaciente(p) {
+    input.value = `${p.apellido} ${p.nombre}`;
+    hidden.value = p.id;
+    drop.style.display = "none";
+    if ($("turno-financiador")) $("turno-financiador").value = p.financiador || "";
+    if ($("turno-plan")) $("turno-plan").value = p.plan || "";
+    if ($("btn-agregar-paciente")) $("btn-agregar-paciente").style.display = "none";
+  }
+
   function renderDrop(lista) {
     if (!lista.length) { drop.style.display="none"; return; }
     drop.innerHTML = lista.map(p => {
@@ -81,9 +96,8 @@ function initPacienteAutocomplete(inputId, hiddenId) {
     drop.querySelectorAll(".pac-ac-item").forEach(el => {
       el.addEventListener("mousedown", e => {
         e.preventDefault();
-        input.value  = el.dataset.label;
-        hidden.value = el.dataset.id;
-        drop.style.display = "none";
+        const p = pacientes.find(x => x.id === parseInt(el.dataset.id));
+        if (p) _onSelectPaciente(p);
       });
     });
   }
@@ -91,13 +105,17 @@ function initPacienteAutocomplete(inputId, hiddenId) {
   input.addEventListener("input", function() {
     const q = this.value.trim().toLowerCase();
     hidden.value = "";
-    if (!q) { drop.style.display="none"; return; }
+    if (!q) { drop.style.display="none"; if($("btn-agregar-paciente"))$("btn-agregar-paciente").style.display="none"; return; }
     const filtered = pacientes.filter(p =>
       p.apellido.toLowerCase().includes(q) ||
       p.nombre.toLowerCase().includes(q)   ||
       (p.nro_hc && p.nro_hc.toLowerCase().includes(q))
     ).slice(0, 12);
     renderDrop(filtered);
+    // Mostrar boton agregar paciente si no hay resultados exactos
+    if ($("btn-agregar-paciente")) {
+      $("btn-agregar-paciente").style.display = filtered.length === 0 ? "inline-block" : "none";
+    }
   });
 
   input.addEventListener("focus", function() {
@@ -147,8 +165,22 @@ document.querySelector(".main").addEventListener("click",()=>{
 
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
+  // Mostrar nombre de usuario
+  if (currentUser && $("user-display")) $("user-display").textContent = currentUser.display_name;
+
+  // Si es medico, ocultar secciones que no corresponden
+  if (currentUser && currentUser.role === "medico") {
+    document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
+  }
+
   [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
   populateSelects();
+
+  // Si es medico, preseleccionar su profesional en el filtro
+  if (currentUser && currentUser.role === "medico" && currentUser.medico_id) {
+    const selMed = $("turno-medico");
+    if (selMed) selMed.value = currentUser.medico_id;
+  }
   initPacienteAutocomplete("turno-paciente-input","turno-paciente-id");
   renderDashboard();
 }
@@ -517,14 +549,38 @@ async function eliminarHorario(horarioId) {
   catch(e){toast(e.message,"error");}
 }
 
+/* ── Agregar paciente desde turno ───────────────────────── */
+async function agregarPacienteDesdeTurno() {
+  const nombre_completo = $("turno-paciente-input").value.trim();
+  if (!nombre_completo) { toast("Escribi el nombre del paciente","error"); return; }
+  const partes = nombre_completo.split(/\s+/);
+  const apellido = partes[0] || "";
+  const nombre = partes.slice(1).join(" ") || "";
+  const financiador = $("turno-financiador").value.toUpperCase().trim() || null;
+  const plan = $("turno-plan").value.trim() || null;
+  try {
+    const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({nombre:nombre||apellido,apellido,financiador,plan})});
+    pacientes.push(nuevo);
+    $("turno-paciente-id").value = nuevo.id;
+    $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
+    $("btn-agregar-paciente").style.display = "none";
+    toast("Paciente agregado a la base de datos","success");
+  } catch(e) { toast(e.message,"error"); }
+}
+
 /* ── Modal Turno ─────────────────────────────────────────── */
 function abrirNuevoTurno(consultorio=1, fechaHora="") {
   turnoEditing=null;
   $("modal-turno-titulo").textContent="Nuevo Turno"; $("campo-estado").style.display="none";
   $("turno-consultorio").value=consultorio; $("turno-fecha-hora").value=fechaHora;
   $("turno-paciente-input").value=""; $("turno-paciente-id").value="";
-  $("turno-medico").value=""; $("turno-duracion").value="45"; $("turno-obs").value="";
+  $("turno-medico").value=""; $("turno-duracion").value="45";
+  $("turno-financiador").value=""; $("turno-plan").value="";
+  $("turno-obs").value="";
+  $("btn-agregar-paciente").style.display="none";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
+  // Preseleccionar medico si es profesional
+  if (currentUser && currentUser.role==="medico" && currentUser.medico_id) $("turno-medico").value=currentUser.medico_id;
   $("modal-turno").classList.add("open");
 }
 async function abrirEditarTurno(id) {
@@ -534,7 +590,9 @@ async function abrirEditarTurno(id) {
   $("turno-paciente-input").value=`${t.paciente?.apellido} ${t.paciente?.nombre}`;
   $("turno-paciente-id").value=t.paciente_id;
   $("turno-medico").value=t.medico_id; $("turno-duracion").value=t.duracion_minutos;
+  $("turno-financiador").value=t.paciente?.financiador||""; $("turno-plan").value=t.paciente?.plan||"";
   $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
+  $("btn-agregar-paciente").style.display="none";
   $("modal-turno").classList.add("open");
 }
 function abrirNuevoTurnoPaciente(pacienteId) {

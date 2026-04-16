@@ -64,3 +64,20 @@ class TurnoOut(TurnoBase):
     google_event_id: Optional[str]=None
     paciente: Optional[PacienteOut]=None; medico: Optional[MedicoOut]=None
     class Config: from_attributes = True
+
+# ── Auth / User ──────────────────────────────────────────────
+class LoginRequest(BaseModel):
+    username: str; password: str
+
+class TokenOut(BaseModel):
+    access_token: str; token_type: str = "bearer"
+    user: "UserOut"
+
+class UserOut(BaseModel):
+    id: int; username: str; display_name: str
+    role: str; medico_id: Optional[int] = None
+    class Config: from_attributes = True
+
+class UserCreate(BaseModel):
+    username: str; password: str; display_name: str
+    role: str = "medico"; medico_id: Optional[int] = None

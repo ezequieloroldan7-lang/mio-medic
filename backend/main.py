@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session, joinedload
 import models
 from database import SessionLocal, engine, get_db
 from routers import medicos, pacientes, turnos
+from routers.auth_router import router as auth_router
 from whatsapp import enviar_confirmacion
 
 
@@ -100,6 +101,7 @@ async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
     _migrate_db()
     _seed_datos_iniciales()
+    _seed_admin_user()
     scheduler.add_job(tarea_whatsapp, "interval", hours=1, id="wa_reminders", replace_existing=True)
     scheduler.start()
     log.info("Scheduler iniciado. App lista.")
@@ -120,6 +122,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(pacientes.router)
 app.include_router(turnos.router)
 app.include_router(medicos.router)
@@ -128,9 +131,15 @@ app.include_router(medicos.router)
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
+LOGIN_HTML = FRONTEND_DIR / "login.html"
+
 @app.get("/")
 def root():
     return FileResponse(str(INDEX_HTML))
+
+@app.get("/login")
+def login_page():
+    return FileResponse(str(LOGIN_HTML))
 
 
 @app.get("/health")
@@ -211,5 +220,28 @@ def _seed_datos_iniciales():
     except Exception as e:  # noqa: BLE001
         db.rollback()
         log.error("Error en seed inicial: %s", e)
+    finally:
+        db.close()
+
+
+def _seed_admin_user():
+    """Crea el usuario admin MIO TURNOS si no existe."""
+    from auth import hash_password
+    db = SessionLocal()
+    try:
+        if db.query(models.User).filter(models.User.username == "mioturnos").first():
+            return
+        admin = models.User(
+            username="mioturnos",
+            password_hash=hash_password("mio2026"),
+            display_name="MIO TURNOS",
+            role="admin",
+        )
+        db.add(admin)
+        db.commit()
+        log.info("Usuario admin 'mioturnos' creado (password: mio2026).")
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.error("Error creando admin: %s", e)
     finally:
         db.close()
