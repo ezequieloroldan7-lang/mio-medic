@@ -343,18 +343,32 @@ async function renderTurnos(q="") {
   const turnos=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
   const f=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
   $("tabla-turnos").innerHTML=f.length===0
-    ?`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Sin turnos</td></tr>`
-    :f.map(t=>`<tr>
-        <td>${fmtFechaCorta(t.fecha_hora_inicio)}</td><td>${fmtHoraDisplay(t.fecha_hora_inicio)}</td>
-        <td>C${t.consultorio}</td><td>${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}</td>
-        <td>${esc(t.medico?.apellido)}</td><td>${esc(t.medico?.especialidad?.nombre||"")}</td>
-        <td><span class="badge badge-${t.estado}">${t.estado}</span></td>
-        <td>${t.whatsapp_enviado?"✅":"—"}</td>
-        <td style="white-space:nowrap">
+    ?`<div style="text-align:center;color:var(--muted);padding:2rem">Sin turnos</div>`
+    :f.map(t=>{
+      const p=t.paciente;
+      const obs=t.observaciones?`<div class="dash-turno-obs">${esc(t.observaciones)}</div>`:"";
+      const info=[];
+      if(p?.nro_hc)info.push(`HC: ${esc(p.nro_hc)}`);
+      if(p?.dni)info.push(`DNI: ${esc(p.dni)}`);
+      if(p?.telefono)info.push(`WhatsApp: ${esc(p.telefono)}`);
+      if(p?.financiador)info.push(p.financiador+(p.plan?" — "+p.plan:""));
+      if(p?.email)info.push(p.email);
+      const infoHtml=info.length?`<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>`:"";
+      return `<div class="dash-turno-card" onclick="abrirEditarTurno(${t.id})">
+        <span class="dash-turno-hora">${fmtFechaCorta(t.fecha_hora_inicio)} ${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
+        <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
+        <span class="dash-turno-consultorio">C${t.consultorio}</span>
+        <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)} — ${esc(t.medico?.especialidad?.nombre||"")}</span>
+        <span class="badge badge-${t.estado}">${t.estado}</span>
+        <span class="dash-turno-actions" onclick="event.stopPropagation()">
           <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarTurno(${t.id})" title="Editar">✏️</button>
           <button class="btn btn-sm btn-outline btn-icon" onclick="cancelarTurno(${t.id})" title="Cancelar" style="color:var(--warning);border-color:var(--warning)">✕</button>
-          <button class="btn btn-sm btn-danger btn-icon" onclick="eliminarTurno(${t.id})" data-turno-del="${t.id}" title="Eliminar permanente">🗑️</button>
-        </td></tr>`).join("");
+          <button class="btn btn-sm btn-danger btn-icon" onclick="eliminarTurno(${t.id})" title="Eliminar">🗑️</button>
+        </span>
+        ${infoHtml}
+        ${obs}
+      </div>`;
+    }).join("");
 }
 $("filtro-fecha")?.addEventListener("change",()=>renderTurnos());
 $("filtro-buscar-turno")?.addEventListener("input",e=>renderTurnos(e.target.value));
@@ -466,7 +480,7 @@ async function renderProfesionales() {
       if (m.matricula)          infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">◉</span><span>Mat. ${esc(m.matricula)}</span></div>`);
       if (m.telefono)           infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">☏</span><span>${esc(m.telefono)}</span></div>`);
       if (m.email)              infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">✉</span><span>${esc(m.email)}</span></div>`);
-      if (m.google_calendar_id) infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">📅</span><span style="color:var(--success);font-size:.72rem">GCal sincronizado</span></div>`);
+      if (m.google_calendar_id) infoRows.push(`<div class="prof-info-row"><span class="prof-info-icon">✓</span><span style="color:var(--success);font-size:.72rem">Google Calendar sincronizado</span></div>`);
 
       return `
         <div class="prof-card">
@@ -484,7 +498,6 @@ async function renderProfesionales() {
           </div>
           <div class="prof-actions">
             <button class="btn btn-sm btn-outline" onclick="abrirAgregarHorario(${m.id})">+ Horario</button>
-            <button class="btn btn-sm btn-outline" onclick="copiarLinkCalendario(${m.id})" title="Copiar link iCal para Google Calendar">📅 Calendario</button>
             <button class="btn btn-sm btn-outline" onclick="abrirEditarMedico(${m.id})">Editar</button>
             <button class="btn btn-sm btn-ghost btn-icon" onclick="eliminarMedico(${m.id})" title="Eliminar">🗑</button>
           </div>
@@ -755,6 +768,22 @@ document.addEventListener("keydown", e=>{
 
 /* ── Helpers ─────────────────────────────────────────────── */
 function cerrarModal(id){$(id).classList.remove("open");}
+
+/* ── Cambiar contraseña ───────────────────────────────────── */
+function abrirCambiarPassword() {
+  $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
+  $("modal-password").classList.add("open");
+}
+async function guardarPassword() {
+  const cur=$("pw-current").value, nw=$("pw-new").value, conf=$("pw-confirm").value;
+  if(!cur||!nw){toast("Completa todos los campos","error");return;}
+  if(nw!==conf){toast("Las contraseñas no coinciden","error");return;}
+  if(nw.length<4){toast("La contraseña debe tener al menos 4 caracteres","error");return;}
+  try{
+    await api("/auth/change-password",{method:"PUT",body:JSON.stringify({current_password:cur,new_password:nw})});
+    toast("Contraseña actualizada","success"); cerrarModal("modal-password");
+  }catch(e){toast(e.message,"error");}
+}
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
 

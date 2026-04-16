@@ -26,6 +26,7 @@
   </div>
   <div style="display:flex;align-items:center;gap:.6rem;margin-left:1rem;">
     <span id="user-display" style="font-size:.75rem;color:#A89888;font-weight:500;"></span>
+    <button onclick="abrirCambiarPassword()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Clave</button>
     <button onclick="logout()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Salir</button>
   </div>
 </header>
@@ -112,13 +113,8 @@
         <input type="date" id="filtro-fecha"/>
         <input type="text" id="filtro-buscar-turno" placeholder="Buscar paciente..." style="max-width:220px"/>
       </div>
-      <div class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Fecha</th><th>Hora</th><th>C.</th><th>Paciente</th><th>Profesional</th><th>Especialidad</th><th>Estado</th><th>WA</th><th></th></tr></thead>
-            <tbody id="tabla-turnos"><tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
-          </table>
-        </div>
+      <div id="tabla-turnos" class="dash-turnos-list">
+        <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
       </div>
     </div>
 
@@ -332,6 +328,27 @@
 
 <!-- FAB solo visible en agenda -->
 <button id="btn-fab" class="btn btn-primary fab" style="display:none" onclick="abrirNuevoTurno()">+ Turno</button>
+<!-- MODAL: CAMBIAR CONTRASEÑA -->
+<div class="modal-overlay" id="modal-password">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title">Cambiar contraseña</span>
+      <button class="modal-close" onclick="cerrarModal('modal-password')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label>Contraseña actual</label><input type="password" id="pw-current"/></div>
+        <div class="form-group full"><label>Nueva contraseña</label><input type="password" id="pw-new"/></div>
+        <div class="form-group full"><label>Confirmar nueva contraseña</label><input type="password" id="pw-confirm"/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-password')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPassword()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 <script src="/static/js/app.js?v=10"></script>
 </body>

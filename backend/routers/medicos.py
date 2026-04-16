@@ -81,6 +81,23 @@ def obtener_medico(medico_id: int, db: Session = Depends(get_db)):
 def crear_medico(data: schemas.MedicoCreate, db: Session = Depends(get_db)):
     m = models.Medico(**data.model_dump())
     db.add(m); db.commit(); db.refresh(m)
+    # Auto-crear usuario para el profesional
+    import unicodedata
+    from auth import hash_password
+    def _c(s):
+        s = unicodedata.normalize("NFD", s.lower())
+        return "".join(c for c in s if unicodedata.category(c) != "Mn").replace(" ", "")
+    username = f"{_c(m.nombre)[0]}.{_c(m.apellido)}"
+    if not db.query(models.User).filter(models.User.username == username).first():
+        u = models.User(
+            username=username,
+            password_hash=hash_password("mio2026"),
+            display_name=f"Dr/a. {m.nombre} {m.apellido}",
+            role="medico",
+            medico_id=m.id,
+        )
+        db.add(u); db.commit()
+        log.info("Usuario '%s' auto-creado para %s %s", username, m.nombre, m.apellido)
     return _get_medico(m.id, db)
 
 
