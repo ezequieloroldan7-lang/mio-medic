@@ -824,4 +824,92 @@ async function guardarPassword() {
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
 
-init().catch(e=>console.error("Error de inicio:",e));
+init().then(() => {
+  if (!localStorage.getItem("tutorial_done")) tutorialStart();
+}).catch(e=>console.error("Error de inicio:",e));
+
+/* ── Tutorial interactivo ──────────────────────────────── */
+let _tutStep = 0;
+let _tutSteps = [];
+
+function _tutStepsAdmin() {
+  return [
+    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar las principales funciones del sistema de turnos. Hace click en Siguiente para continuar.", target: ".header-logo" },
+    { title: "Dashboard", desc: "Aca ves un resumen de los turnos de hoy: cuantos hay, pendientes, confirmados, realizados y ausentes/cancelados.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
+    { title: "Agenda", desc: "La agenda muestra los turnos del dia en formato de grilla por consultorio. Podes hacer click en un horario libre para agendar un turno nuevo.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
+    { title: "Turnos", desc: "Aca ves la lista completa de turnos con todos los datos del paciente. Podes filtrar por fecha y buscar por nombre.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
+    { title: "Pacientes", desc: "Gestion de pacientes: buscar, agregar, editar o eliminar. Desde aca tambien podes agendar un turno rapido para un paciente.", target: '[data-view="view-pacientes"]', action: ()=>navTo("view-pacientes") },
+    { title: "Profesionales", desc: "Administra los profesionales del consultorio, sus horarios de atencion y la integracion con Google Calendar.", target: '[data-view="view-profesionales"]', action: ()=>navTo("view-profesionales") },
+    { title: "Nuevo Turno", desc: "Para agendar un turno nuevo, usa el boton + Turno en la agenda o el boton Turno en la ficha del paciente. Si el paciente no existe, podes crearlo en el momento.", target: "#btn-fab", action: ()=>navTo("view-agenda") },
+    { title: "Cambiar contraseña", desc: "Cada usuario puede cambiar su contraseña haciendo click en el boton Clave en la esquina superior derecha.", target: "#user-display" },
+    { title: "Listo!", desc: "Ya conoces las funciones principales. Si tenes dudas, explora cada seccion. Este tutorial no se va a volver a mostrar.", target: ".header-logo" },
+  ];
+}
+
+function _tutStepsMedico() {
+  return [
+    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar tu panel profesional. Solo ves tus propios turnos agendados.", target: ".header-logo" },
+    { title: "Tus turnos de hoy", desc: "El dashboard muestra un resumen de tus turnos de hoy con contadores de estado.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
+    { title: "Tu agenda", desc: "La agenda muestra tus turnos en formato de grilla por consultorio y horario.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
+    { title: "Lista de turnos", desc: "Aca podes ver, editar o cancelar tus turnos. Filtra por fecha o busca por nombre de paciente.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
+    { title: "Cambiar contraseña", desc: "Podes cambiar tu contraseña en cualquier momento desde el boton Clave arriba a la derecha.", target: "#user-display" },
+    { title: "Listo!", desc: "Ya conoces tu panel. Si tenes dudas, explora cada seccion.", target: ".header-logo" },
+  ];
+}
+
+function tutorialStart() {
+  _tutSteps = (_isMedico) ? _tutStepsMedico() : _tutStepsAdmin();
+  _tutStep = 0;
+  $("tutorial-overlay").style.display = "block";
+  _tutRender();
+}
+
+function tutorialNext() {
+  _tutStep++;
+  if (_tutStep >= _tutSteps.length) { tutorialSkip(); return; }
+  _tutRender();
+}
+
+function tutorialSkip() {
+  $("tutorial-overlay").style.display = "none";
+  localStorage.setItem("tutorial_done", "1");
+  navTo("view-dashboard");
+}
+
+function _tutRender() {
+  const step = _tutSteps[_tutStep];
+  if (step.action) step.action();
+  $("tutorial-step").textContent = `Paso ${_tutStep + 1} de ${_tutSteps.length}`;
+  $("tutorial-title").textContent = step.title;
+  $("tutorial-desc").textContent = step.desc;
+  $("tutorial-next-btn").textContent = _tutStep === _tutSteps.length - 1 ? "Finalizar" : "Siguiente";
+
+  const target = document.querySelector(step.target);
+  const highlight = $("tutorial-highlight");
+  const tooltip = $("tutorial-tooltip");
+
+  if (target) {
+    const r = target.getBoundingClientRect();
+    const pad = 6;
+    highlight.style.display = "block";
+    highlight.style.top = (r.top - pad) + "px";
+    highlight.style.left = (r.left - pad) + "px";
+    highlight.style.width = (r.width + pad * 2) + "px";
+    highlight.style.height = (r.height + pad * 2) + "px";
+
+    // Posicionar tooltip debajo o a la derecha del target
+    const ttW = 340, ttH = 200;
+    let ttTop = r.bottom + 16;
+    let ttLeft = r.left;
+    if (ttTop + ttH > window.innerHeight) ttTop = r.top - ttH - 16;
+    if (ttLeft + ttW > window.innerWidth) ttLeft = window.innerWidth - ttW - 20;
+    if (ttLeft < 10) ttLeft = 10;
+    tooltip.style.top = Math.max(10, ttTop) + "px";
+    tooltip.style.left = ttLeft + "px";
+  } else {
+    highlight.style.display = "none";
+    tooltip.style.top = "50%";
+    tooltip.style.left = "50%";
+    tooltip.style.transform = "translate(-50%,-50%)";
+  }
+}

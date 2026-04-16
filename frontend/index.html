@@ -340,7 +340,22 @@
   </div>
 </div>
 
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-overlay" style="display:none">
+  <div id="tutorial-backdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;transition:opacity .3s"></div>
+  <div id="tutorial-tooltip" style="position:fixed;z-index:10000;background:#fff;border-radius:12px;padding:1.5rem;max-width:340px;box-shadow:0 12px 40px rgba(0,0,0,.2);font-family:Raleway,sans-serif;">
+    <div id="tutorial-step" style="font-size:.7rem;color:var(--primary);font-weight:600;letter-spacing:.1rem;text-transform:uppercase;margin-bottom:.4rem"></div>
+    <div id="tutorial-title" style="font-size:1rem;font-weight:600;color:#333;margin-bottom:.5rem"></div>
+    <div id="tutorial-desc" style="font-size:.85rem;color:#666;line-height:1.5;margin-bottom:1.2rem"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <button onclick="tutorialSkip()" style="background:none;border:none;font-size:.8rem;color:#999;cursor:pointer;font-family:inherit">Saltar</button>
+      <button id="tutorial-next-btn" onclick="tutorialNext()" style="background:#6B5B4F;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-size:.85rem;cursor:pointer;font-family:inherit;font-weight:500">Siguiente</button>
+    </div>
+  </div>
+  <div id="tutorial-highlight" style="position:fixed;z-index:9999;border:3px solid #6B5B4F;border-radius:10px;pointer-events:none;transition:all .4s ease;box-shadow:0 0 0 4000px rgba(0,0,0,.45)"></div>
+</div>
+
 <div id="toast-container"></div>
-<script src="/static/js/app.js?v=10"></script>
+<script src="/static/js/app.js?v=11"></script>
 </body>
 </html>
