@@ -171,8 +171,8 @@
           <input type="hidden" id="turno-paciente-id"/>
           <div id="turno-pac-info" class="turno-pac-info" style="display:none"></div>
           <div id="turno-new-pac-fields" class="turno-new-pac-fields">
-            <div class="form-group"><label>DNI *</label><input type="text" id="turno-new-dni" placeholder="DNI"/></div>
-            <div class="form-group"><label>Telefono *</label><input type="tel" id="turno-new-tel" placeholder="+54 11..."/></div>
+            <div class="form-group"><label>DNI *</label><input type="text" id="turno-new-dni" placeholder="Sin puntos"/></div>
+            <div class="form-group"><label>Telefono *</label><input type="tel" id="turno-new-tel" placeholder="+54 11 ..."/></div>
             <div class="form-group"><label>HC</label><input type="text" id="turno-new-hc" readonly style="background:#f5f0eb"/></div>
           </div>
         </div>
@@ -238,15 +238,15 @@
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label>Nombre *</label><input type="text" id="pac-nombre" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Apellido *</label><input type="text" id="pac-apellido" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Nombre *</label><input type="text" id="pac-nombre" placeholder="Ej: LAURA" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Apellido *</label><input type="text" id="pac-apellido" placeholder="Ej: GARCIA" style="text-transform:uppercase"/></div>
         <div class="form-group"><label>Teléfono</label><input type="tel" id="pac-tel" placeholder="+54 11 ..."/></div>
-        <div class="form-group"><label>Email</label><input type="email" id="pac-email"/></div>
-        <div class="form-group"><label>DNI</label><input type="text" id="pac-dni"/></div>
-        <div class="form-group"><label>N° Historia Clínica</label><input type="text" id="pac-hc"/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="pac-email" placeholder="paciente@correo.com"/></div>
+        <div class="form-group"><label>DNI</label><input type="text" id="pac-dni" placeholder="Sin puntos"/></div>
+        <div class="form-group"><label>N° Historia Clínica</label><input type="text" id="pac-hc" placeholder="Ej: 100"/></div>
         <div class="form-group"><label>Financiador</label><input type="text" id="pac-financiador" placeholder="Ej: OSDE, SWISS MEDICAL" style="text-transform:uppercase"/></div>
         <div class="form-group"><label>Plan</label><input type="text" id="pac-plan" placeholder="Ej: 210" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva" placeholder="Nombre del derivante" style="text-transform:uppercase"/></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -265,15 +265,15 @@
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label>Nombre *</label><input type="text" id="med-nombre"/></div>
-        <div class="form-group"><label>Apellido *</label><input type="text" id="med-apellido"/></div>
+        <div class="form-group"><label>Nombre *</label><input type="text" id="med-nombre" placeholder="Ej: María"/></div>
+        <div class="form-group"><label>Apellido *</label><input type="text" id="med-apellido" placeholder="Ej: Garrido"/></div>
         <div class="form-group">
           <label>Especialidad *</label>
           <select id="med-especialidad" class="sel-especialidad"></select>
         </div>
         <div class="form-group"><label>Matrícula</label><input type="text" id="med-matricula" placeholder="MP 12345"/></div>
-        <div class="form-group"><label>Teléfono</label><input type="tel" id="med-telefono"/></div>
-        <div class="form-group"><label>Email</label><input type="email" id="med-email"/></div>
+        <div class="form-group"><label>Teléfono</label><input type="tel" id="med-telefono" placeholder="+54 11 ..."/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="med-email" placeholder="profesional@correo.com"/></div>
         <div class="form-group full"><label>Email Google Calendar (para sincronizar turnos)</label><input type="email" id="med-gcal" placeholder="dr.apellido@gmail.com — dejá vacío si no querés sincronizar"/></div>
       </div>
     </div>
@@ -332,9 +332,9 @@
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group full"><label>Contraseña actual</label><input type="password" id="pw-current"/></div>
-        <div class="form-group full"><label>Nueva contraseña</label><input type="password" id="pw-new"/></div>
-        <div class="form-group full"><label>Confirmar nueva contraseña</label><input type="password" id="pw-confirm"/></div>
+        <div class="form-group full"><label>Contraseña actual</label><input type="password" id="pw-current" placeholder="Tu contraseña actual"/></div>
+        <div class="form-group full"><label>Nueva contraseña</label><input type="password" id="pw-new" placeholder="Mínimo 4 caracteres"/></div>
+        <div class="form-group full"><label>Confirmar nueva contraseña</label><input type="password" id="pw-confirm" placeholder="Repetí la nueva contraseña"/></div>
       </div>
     </div>
     <div class="modal-footer">
