@@ -64,4 +64,5 @@ def actualizar_paciente(paciente_id: int, data: schemas.PacienteCreate, db: Sess
 def eliminar_paciente(paciente_id: int, db: Session = Depends(get_db)):
     p = db.query(models.Paciente).filter(models.Paciente.id == paciente_id).first()
     if not p: raise HTTPException(404, "Paciente no encontrado")
+    db.query(models.Turno).filter(models.Turno.paciente_id == paciente_id).delete()
     db.delete(p); db.commit()
