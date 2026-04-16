@@ -85,11 +85,6 @@ El sistema ejecuta un job cada hora que busca los turnos del día siguiente y en
 
 | Nombre | Especialidad |
 |---|---|
-| Dra. María de los Ángeles Garrido | Ginecología |
-| Dr. Carlos Pereyra | Cosmetología |
-| Dr. Martín Rodríguez | Nutrición |
-| Dra. Sofía Méndez | Sexología |
-| Dra. Laura Fernández | Dermatología |
 
 > Los médicos se pueden actualizar directamente en la base de datos o se puede agregar un panel de administración en una próxima versión.
 
