@@ -716,6 +716,10 @@ tr:hover td { background: #fbf8f4; }
 .dash-turno-actions { margin-left:auto; }
 
 /* Patient info row in turno modal */
+.pac-card-top { display:flex; align-items:center; gap:.6rem; width:100%; flex-wrap:wrap; }
+.pac-card-nombre { font-weight:600; font-size:.9rem; flex:1; min-width:150px; }
+.pac-card-btns { display:flex; gap:.25rem; flex-shrink:0; }
+
 .turno-pac-info {
   display:flex; gap:.8rem; flex-wrap:wrap; font-size:.78rem; color:var(--muted);
   padding:.5rem .75rem; background:var(--accent); border-radius:6px; margin-top:.3rem;
