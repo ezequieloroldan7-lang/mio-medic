@@ -176,14 +176,14 @@ def migrar(path_excel: str, dry_run: bool = False, reset: bool = False):
                 telefono  = limpiar_telefono(row[col_idx["telefono"]]) if "telefono" in col_idx else None,
                 email     = _s(row[col_idx["email"]]) or None if "email" in col_idx else None,
                 nro_hc    = _hc(row[col_idx["hc"]]) if "hc" in col_idx else None,
-                cobertura = normalizar_cobertura(row[col_idx["cobertura"]]) if "cobertura" in col_idx else None,
+                financiador = normalizar_cobertura(row[col_idx["cobertura"]]).upper() if "cobertura" in col_idx and normalizar_cobertura(row[col_idx["cobertura"]]) else None,
                 deriva    = _s(row[col_idx["deriva"]]) or None if "deriva" in col_idx else None,
             )
 
             if dry_run:
                 if len(muestras) < 8:
                     muestras.append(
-                        f"{p.apellido}, {p.nombre} | tel={p.telefono} | hc={p.nro_hc} | cob={p.cobertura}"
+                        f"{p.apellido}, {p.nombre} | tel={p.telefono} | hc={p.nro_hc} | fin={p.financiador}"
                     )
             else:
                 db.add(p)

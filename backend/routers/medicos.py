@@ -233,7 +233,10 @@ def calendario_ical(medico_id: int, db: Session = Depends(get_db)):
         # Armar description con datos útiles del paciente
         desc_parts = []
         if p:
-            if p.cobertura:   desc_parts.append(f"Cobertura: {p.cobertura}")
+            if p.financiador:
+                fin_str = p.financiador
+                if p.plan: fin_str += f" — {p.plan}"
+                desc_parts.append(f"Financiador: {fin_str}")
             if p.nro_hc:      desc_parts.append(f"HC: {p.nro_hc}")
             if p.telefono:    desc_parts.append(f"Tel: {p.telefono}")
             if p.email:       desc_parts.append(f"Email: {p.email}")

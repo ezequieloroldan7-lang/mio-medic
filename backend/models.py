@@ -21,7 +21,8 @@ class Paciente(Base):
     email     = Column(String)
     dni       = Column(String, index=True)
     nro_hc    = Column(String, index=True)
-    cobertura = Column(String, index=True)
+    financiador = Column(String, index=True)
+    plan        = Column(String)
     deriva    = Column(String)
     turnos    = relationship("Turno", back_populates="paciente")
 
@@ -68,8 +69,6 @@ class Turno(Base):
     fecha_hora_inicio = Column(DateTime, nullable=False, index=True)
     duracion_minutos  = Column(Integer, default=45)
     estado            = Column(Enum(EstadoTurno), default=EstadoTurno.pendiente, index=True)
-    financiador       = Column(String)
-    plan              = Column(String)
     observaciones     = Column(String)
     whatsapp_enviado  = Column(Boolean, default=False, index=True)
     google_event_id   = Column(String)   # ID del evento en Google Calendar

@@ -134,7 +134,11 @@ def _paciente_info_str(paciente) -> str:
     """Arma una descripción útil del paciente para el evento."""
     parts = []
     if paciente:
-        if paciente.cobertura:  parts.append(f"Cobertura: {paciente.cobertura}")
+        if paciente.financiador:
+            fin_str = paciente.financiador
+            if paciente.plan:
+                fin_str += f" — {paciente.plan}"
+            parts.append(f"Financiador: {fin_str}")
         if paciente.nro_hc:     parts.append(f"HC: {paciente.nro_hc}")
         if paciente.telefono:   parts.append(f"Tel: {paciente.telefono}")
         if paciente.email:      parts.append(f"Email: {paciente.email}")

@@ -186,12 +186,12 @@ def stats(
           .all()
     )
 
-    # Por cobertura
-    por_cobertura = (
-        db.query(models.Paciente.cobertura, func.count(models.Turno.id))
+    # Por financiador
+    por_financiador = (
+        db.query(models.Paciente.financiador, func.count(models.Turno.id))
           .join(models.Turno, models.Turno.paciente_id == models.Paciente.id)
           .filter(models.Turno.fecha_hora_inicio.between(ini, fin))
-          .group_by(models.Paciente.cobertura)
+          .group_by(models.Paciente.financiador)
           .order_by(func.count(models.Turno.id).desc())
           .all()
     )
@@ -209,9 +209,9 @@ def stats(
             {"medico_id": mid, "nombre": f"{ap}, {nm}", "cantidad": c}
             for mid, ap, nm, c in por_medico
         ],
-        "por_cobertura": [
-            {"cobertura": (cob or "Sin especificar"), "cantidad": c}
-            for cob, c in por_cobertura
+        "por_financiador": [
+            {"financiador": (fin or "Sin especificar"), "cantidad": c}
+            for fin, c in por_financiador
         ],
     }
 
@@ -240,7 +240,7 @@ def export_csv(
     w = csv.writer(buf, delimiter=";")
     w.writerow([
         "ID", "Fecha", "Hora", "Consultorio", "Duración (min)",
-        "Paciente", "DNI", "HC", "Teléfono", "Cobertura",
+        "Paciente", "DNI", "HC", "Teléfono", "Financiador", "Plan",
         "Profesional", "Especialidad", "Estado", "WhatsApp enviado", "Observaciones",
     ])
     for t in q.all():
@@ -256,7 +256,8 @@ def export_csv(
             (p.dni if p else "") or "",
             (p.nro_hc if p else "") or "",
             (p.telefono if p else "") or "",
-            (p.cobertura if p else "") or "",
+            (p.financiador if p else "") or "",
+            (p.plan if p else "") or "",
             f"{m.apellido}, {m.nombre}" if m else "",
             (m.especialidad.nombre if m and m.especialidad else "") or "",
             t.estado.value if t.estado else "",
@@ -298,10 +299,7 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
     if _hay_solapamiento(db, data.consultorio, data.fecha_hora_inicio, data.duracion_minutos):
         raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
-    dump = data.model_dump()
-    if dump.get("financiador"):
-        dump["financiador"] = dump["financiador"].upper()
-    t = models.Turno(**dump)
+    t = models.Turno(**data.model_dump())
     db.add(t)
     db.commit()
     db.refresh(t)
@@ -356,8 +354,6 @@ def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Dep
         ):
             raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
-    if payload.get("financiador"):
-        payload["financiador"] = payload["financiador"].upper()
     for k, v in payload.items():
         setattr(t, k, v)
     db.commit()
