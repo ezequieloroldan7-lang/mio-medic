@@ -41,8 +41,26 @@ function fmtFecha(dt)       { return new Date(dt).toLocaleDateString("es-AR",{we
 function fmtFechaCorta(dt)  { return new Date(dt).toLocaleDateString("es-AR"); }
 
 function toast(msg, type="info") {
-  const el=document.createElement("div"); el.className=`toast ${type}`; el.textContent=msg;
-  $("toast-container").appendChild(el); setTimeout(()=>el.remove(),3500);
+  const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span class="toast-msg"></span>
+    <button class="toast-close" aria-label="Cerrar">×</button>`;
+  el.querySelector(".toast-msg").textContent = msg;
+  const dismiss = () => {
+    if (el._hiding) return; el._hiding = true;
+    el.classList.add("hiding");
+    setTimeout(() => el.remove(), 200);
+  };
+  el.querySelector(".toast-close").addEventListener("click", dismiss);
+  // Auto-dismiss: más tiempo para errores; pausa al pasar el mouse
+  const delay = (type === "error" || type === "warning") ? 6000 : 3500;
+  let timer = setTimeout(dismiss, delay);
+  el.addEventListener("mouseenter", () => clearTimeout(timer));
+  el.addEventListener("mouseleave", () => { timer = setTimeout(dismiss, 2000); });
+  $("toast-container").appendChild(el);
 }
 function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.href="/login"; }
 
