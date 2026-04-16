@@ -566,6 +566,8 @@ tr:hover td { background: #fbf8f4; }
   .header-logo { font-size: 1.3rem; letter-spacing: 7px; }
   .header-sub { display: none; }
   .header-divider { display: none; }
+  .header-user-desktop { display: none !important; }
+  .sidebar-user-mobile { display: flex !important; }
   .header-time { font-size: .9rem; }
   .header-date { font-size: .62rem; }
   :root { --header-h: 56px; }
@@ -712,3 +714,6 @@ tr:hover td { background: #fbf8f4; }
 }
 .turno-new-pac-fields.open { display:flex; }
 .turno-new-pac-fields .form-group { flex:1; min-width:120px; }
+
+/* Sidebar user items: ocultos en desktop, visibles en mobile */
+.sidebar-user-mobile { display: none !important; }

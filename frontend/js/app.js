@@ -178,7 +178,10 @@ document.querySelector(".main").addEventListener("click",()=>{
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
   // Mostrar nombre de usuario
-  if (currentUser && $("user-display")) $("user-display").textContent = currentUser.display_name;
+  if (currentUser) {
+    if ($("user-display")) $("user-display").textContent = currentUser.display_name;
+    if ($("sidebar-user-name")) $("sidebar-user-name").textContent = currentUser.display_name;
+  }
 
   // Si es medico, ocultar secciones que no corresponden
   if (currentUser && currentUser.role === "medico") {
