@@ -24,6 +24,10 @@
     <div class="header-date" id="header-date"></div>
     <div class="header-time" id="header-time"></div>
   </div>
+  <div style="display:flex;align-items:center;gap:.6rem;margin-left:1rem;">
+    <span id="user-display" style="font-size:.75rem;color:#A89888;font-weight:500;"></span>
+    <button onclick="logout()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Salir</button>
+  </div>
 </header>
 
 <div class="layout">
@@ -180,9 +184,19 @@
       <div class="form-grid">
         <div class="form-group full">
           <label>Paciente *</label>
-          <input type="text" id="turno-paciente-input" list="dl-pacientes" placeholder="Apellido Nombre" autocomplete="off"/>
-          <datalist id="dl-pacientes"></datalist>
+          <div style="display:flex;gap:.5rem;align-items:center;">
+            <input type="text" id="turno-paciente-input" placeholder="Apellido Nombre" autocomplete="off" style="flex:1"/>
+            <button type="button" id="btn-agregar-paciente" onclick="agregarPacienteDesdeTurno()" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
+          </div>
           <input type="hidden" id="turno-paciente-id"/>
+        </div>
+        <div class="form-group">
+          <label>Financiador</label>
+          <input type="text" id="turno-financiador" placeholder="Ej: OSDE" style="text-transform:uppercase"/>
+        </div>
+        <div class="form-group">
+          <label>Plan</label>
+          <input type="text" id="turno-plan" placeholder="Ej: 210"/>
         </div>
         <div class="form-group">
           <label>Profesional *</label>

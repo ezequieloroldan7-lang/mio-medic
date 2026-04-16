@@ -80,3 +80,14 @@ class Turno(Base):
         Index("ix_turnos_consultorio_fecha", "consultorio", "fecha_hora_inicio"),
         Index("ix_turnos_medico_fecha",      "medico_id",   "fecha_hora_inicio"),
     )
+
+
+class User(Base):
+    __tablename__ = "users"
+    id            = Column(Integer, primary_key=True, index=True)
+    username      = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
+    display_name  = Column(String, nullable=False)
+    role          = Column(String, nullable=False, default="medico")  # "admin" o "medico"
+    medico_id     = Column(Integer, ForeignKey("medicos.id"), nullable=True)
+    medico        = relationship("Medico")
