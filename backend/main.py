@@ -22,17 +22,39 @@ from contextlib import asynccontextmanager
 from datetime import date, datetime, time, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
 import models
+from auth import require_admin
 from database import SessionLocal, engine, get_db
 from routers import medicos, pacientes, turnos
 from routers.auth_router import router as auth_router
 from whatsapp import enviar_confirmacion
+
+
+# ── Branding (logo subido por el admin) ──────────────────────
+BRANDING_DIR = BASE_DIR / "data"
+LOGO_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".svg")
+LOGO_MIME = {
+    ".png":  "image/png",
+    ".jpg":  "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".svg":  "image/svg+xml",
+}
+MAX_LOGO_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+def _logo_path() -> Path | None:
+    for ext in LOGO_EXTS:
+        p = BRANDING_DIR / f"logo{ext}"
+        if p.exists():
+            return p
+    return None
 
 
 # ── Logging ──────────────────────────────────────────────────
@@ -195,6 +217,56 @@ def login_page():
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now().isoformat(), "version": app.version}
+
+
+# ── Branding / Logo ──────────────────────────────────────────
+@app.get("/branding/logo")
+def get_logo():
+    path = _logo_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="No hay logo configurado")
+    mime = LOGO_MIME.get(path.suffix.lower(), "application/octet-stream")
+    return FileResponse(
+        str(path),
+        media_type=mime,
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.post("/branding/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    _: models.User = Depends(require_admin),
+):
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in LOGO_EXTS:
+        raise HTTPException(
+            400,
+            f"Formato no permitido. Usá: {', '.join(e.lstrip('.') for e in LOGO_EXTS)}",
+        )
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Archivo vacío")
+    if len(content) > MAX_LOGO_SIZE:
+        raise HTTPException(400, "Archivo demasiado grande (máx 5 MB)")
+
+    BRANDING_DIR.mkdir(parents=True, exist_ok=True)
+    # Borrar logos previos (cualquier extensión)
+    for e in LOGO_EXTS:
+        old = BRANDING_DIR / f"logo{e}"
+        if old.exists():
+            old.unlink()
+    (BRANDING_DIR / f"logo{ext}").write_bytes(content)
+    return {"detail": "Logo actualizado", "size": len(content), "ext": ext}
+
+
+@app.delete("/branding/logo", status_code=204)
+def delete_logo(_: models.User = Depends(require_admin)):
+    path = _logo_path()
+    if path is None:
+        raise HTTPException(404, "No hay logo configurado")
+    path.unlink()
+    return Response(status_code=204)
 
 
 # ── Resumen rápido para el dashboard ─────────────────────────

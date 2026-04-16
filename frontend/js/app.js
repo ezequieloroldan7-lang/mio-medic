@@ -193,6 +193,10 @@ async function init() {
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
   }
+  // Si es admin, habilitar opciones admin-only (subir logo)
+  if (currentUser && currentUser.role === "admin") {
+    document.body.classList.add("is-admin");
+  }
 
   const [m, e, p] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
   if (!m || !e || !p) return;
@@ -502,8 +506,6 @@ async function renderPacientes(q="") {
               <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
               <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
             </div>
-          </div>`;
-        }).join("");
           </div>`;
         }).join("");
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
@@ -901,6 +903,94 @@ async function guardarPassword() {
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
+
+/* ── Logo / Branding ─────────────────────────────────────── */
+async function abrirSubirLogo() {
+  const preview = $("logo-preview");
+  const btnDel  = $("btn-eliminar-logo");
+  $("logo-file").value = "";
+  preview.innerHTML = `<span class="logo-preview-empty">Cargando...</span>`;
+  btnDel.style.display = "none";
+  try {
+    const res = await fetch("/branding/logo?t=" + Date.now(), { cache: "no-store" });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      preview.innerHTML = `<img src="${url}" alt="logo actual"/>`;
+      btnDel.style.display = "inline-flex";
+    } else {
+      preview.innerHTML = `<span class="logo-preview-empty">Sin logo cargado</span>`;
+    }
+  } catch {
+    preview.innerHTML = `<span class="logo-preview-empty">Sin logo cargado</span>`;
+  }
+  $("modal-logo").classList.add("open");
+}
+
+function _refreshHeaderLogo() {
+  const img = $("header-logo-img");
+  const txt = $("header-logo-text");
+  if (!img) return;
+  img.classList.remove("loaded");
+  img.style.display = "";
+  if (txt) txt.style.display = "";
+  img.onload = () => {
+    img.classList.add("loaded");
+    if (txt) txt.style.display = "none";
+  };
+  img.onerror = () => { img.style.display = "none"; };
+  img.src = "/branding/logo?t=" + Date.now();
+}
+
+async function subirLogo() {
+  const f = $("logo-file").files[0];
+  if (!f) { toast("Seleccioná un archivo", "error"); return; }
+  if (f.size > 5 * 1024 * 1024) { toast("El archivo supera los 5 MB", "error"); return; }
+  const fd = new FormData();
+  fd.append("file", f);
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch("/branding/logo", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token },
+      body: fd,
+    });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || "Error al subir el logo");
+    }
+    toast("Logo actualizado", "success");
+    cerrarModal("modal-logo");
+    _refreshHeaderLogo();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function eliminarLogo() {
+  if (!confirm("¿Eliminar el logo actual?")) return;
+  const token = localStorage.getItem("token");
+  try {
+    const res = await fetch("/branding/logo", {
+      method: "DELETE",
+      headers: { "Authorization": "Bearer " + token },
+    });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok && res.status !== 204) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || "Error al eliminar el logo");
+    }
+    toast("Logo eliminado", "success");
+    cerrarModal("modal-logo");
+    const img = $("header-logo-img");
+    const txt = $("header-logo-text");
+    if (img) { img.classList.remove("loaded"); img.style.display = "none"; img.src = ""; }
+    if (txt) txt.style.display = "";
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
 
 init().then(() => {
   if (!localStorage.getItem("tutorial_done")) tutorialStart();
