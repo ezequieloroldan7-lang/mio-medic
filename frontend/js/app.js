@@ -52,7 +52,7 @@ async function api(path, opts={}) {
   const headers = {"Content-Type":"application/json"};
   if (token) headers["Authorization"] = "Bearer " + token;
   const res = await fetch(url, { headers, cache: "no-store", ...opts });
-  if(res.status===401 && !path.startsWith("/auth/")){ logout(); return; }
+  if(res.status===401){ logout(); return; }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||"Error en el servidor");}
   if(res.status===204)return null; return res.json();
 }
@@ -540,7 +540,7 @@ async function renderProfesionales() {
             </div>`
           ).join("");
         }
-      } catch(e) { /* silenciar si falla */ }
+      } catch(e) { console.error("Error cargando usuarios:", e); $("users-list").innerHTML = `<div style="color:var(--danger);font-size:.8rem">Error: ${esc(e.message)}</div>`; }
     }
   }
 }
