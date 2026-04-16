@@ -62,7 +62,7 @@ function toast(msg, type="info") {
   el.addEventListener("mouseleave", () => { timer = setTimeout(dismiss, 2000); });
   $("toast-container").appendChild(el);
 }
-function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.href="/login"; }
+function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); sessionStorage.clear(); window.location.href="/login"; }
 
 /* ── Validación inline de formularios ───────────────────── */
 function markFieldError(id, msg) {
@@ -239,8 +239,27 @@ document.querySelector(".main").addEventListener("click",()=>{
   document.querySelector(".sidebar").classList.remove("open");
 });
 
+/* ── Filtros persistentes (sessionStorage) ──────────────── */
+const _FILTROS = [
+  { id: "filtro-fecha",        key: "f_turnos_fecha", evt: "change" },
+  { id: "filtro-buscar-turno", key: "f_turnos_q",     evt: "input"  },
+  { id: "buscar-paciente",     key: "f_pacientes_q",  evt: "input"  },
+  { id: "agenda-fecha",        key: "f_agenda_fecha", evt: "change" },
+];
+function _restoreFiltros() {
+  _FILTROS.forEach(f => {
+    const el = $(f.id);
+    if (!el) return;
+    const v = sessionStorage.getItem(f.key);
+    if (v) el.value = v;
+    el.addEventListener(f.evt, () => sessionStorage.setItem(f.key, el.value));
+  });
+}
+
 /* ── Init ───────────────────────────────────────────────── */
 async function init() {
+  _restoreFiltros();
+
   // Mostrar nombre de usuario
   if (currentUser) {
     if ($("user-display")) $("user-display").textContent = currentUser.display_name;
@@ -327,6 +346,7 @@ async function renderDashboard() {
 async function renderAgenda() {
   const fecha=$("agenda-fecha").value||new Date().toISOString().slice(0,10);
   $("agenda-fecha").value=fecha;
+  sessionStorage.setItem("f_agenda_fecha", fecha);
   $("agenda-titulo").textContent=fmtFecha(fecha+"T12:00:00");
   const turnos_raw=await api(`/turnos?fecha=${fecha}`);
   const turnos=_filtrarPorRol(turnos_raw);
@@ -438,7 +458,8 @@ $("btn-agenda-next").addEventListener("click",()=>{const d=new Date($("agenda-fe
 })();
 
 /* ── Turnos ─────────────────────────────────────────────── */
-async function renderTurnos(q="") {
+async function renderTurnos(q) {
+  if (q === undefined) q = $("filtro-buscar-turno")?.value || "";
   const fecha=$("filtro-fecha")?.value||"";
   const turnos_raw=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
   const turnos=_filtrarPorRol(turnos_raw);
@@ -532,7 +553,8 @@ function _updateSortHeaders() {
   });
 }
 
-async function renderPacientes(q="") {
+async function renderPacientes(q) {
+  if (q === undefined) q = $("buscar-paciente")?.value || "";
   try {
     const lista = await api(q ? `/pacientes?q=${encodeURIComponent(q)}` : "/pacientes");
     const ordenados = _ordenarPacientes(lista);
