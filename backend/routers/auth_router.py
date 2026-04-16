@@ -43,6 +43,15 @@ def crear_usuario(data: schemas.UserCreate, db: Session = Depends(get_db), user:
     return u
 
 
+@router.put("/change-password")
+def cambiar_password(data: schemas.ChangePassword, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(400, "La contraseña actual es incorrecta")
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
+    return {"detail": "Contraseña actualizada"}
+
+
 @router.delete("/users/{user_id}", status_code=204)
 def eliminar_usuario(user_id: int, db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     u = db.query(models.User).filter(models.User.id == user_id).first()

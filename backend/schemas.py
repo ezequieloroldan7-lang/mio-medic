@@ -81,3 +81,6 @@ class UserOut(BaseModel):
 class UserCreate(BaseModel):
     username: str; password: str; display_name: str
     role: str = "medico"; medico_id: Optional[int] = None
+
+class ChangePassword(BaseModel):
+    current_password: str; new_password: str

@@ -252,7 +252,7 @@ def _seed_admin_user():
             def _clean(s):
                 s = unicodedata.normalize("NFD", s.lower())
                 return "".join(c for c in s if unicodedata.category(c) != "Mn").replace(" ", "")
-            username = f"{_clean(m.nombre)}.{_clean(m.apellido)}"
+            username = f"{_clean(m.nombre)[0]}.{_clean(m.apellido)}"
             if db.query(models.User).filter(models.User.username == username).first():
                 continue
             u = models.User(
