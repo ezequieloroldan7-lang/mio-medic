@@ -520,6 +520,27 @@ async function renderProfesionales() {
         </div>`;
     }).join("");
   } catch (e) { toast("Error al cargar profesionales: " + e.message, "error"); }
+
+  // Mostrar usuarios si es admin
+  if (currentUser && currentUser.role === "admin") {
+    const section = $("admin-users-section");
+    if (section) {
+      section.style.display = "block";
+      try {
+        const users = await api("/auth/users");
+        $("users-list").innerHTML = users.map(u =>
+          `<div class="dash-turno-card" style="align-items:center">
+            <span style="font-weight:600;min-width:150px">${esc(u.display_name)}</span>
+            <span style="font-size:.78rem;color:var(--muted)">usuario: ${esc(u.username)}</span>
+            <span style="font-size:.72rem;background:var(--accent);padding:.2rem .5rem;border-radius:4px">${u.role === "admin" ? "Secretaria" : "Profesional"}</span>
+            <span style="margin-left:auto;display:flex;gap:.25rem">
+              <button class="btn btn-sm btn-outline" onclick="resetearPassword(${u.id},'${esc(u.username)}')">Resetear clave</button>
+            </span>
+          </div>`
+        ).join("");
+      } catch(e) { /* silenciar si falla */ }
+    }
+  }
 }
 
 function renderHorariosPills(horarios, medicoId) {
@@ -823,6 +844,14 @@ function abrirCambiarPassword() {
   $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
   $("modal-password").classList.add("open");
 }
+async function resetearPassword(userId, username) {
+  if(!confirm(`¿Resetear la contraseña de "${username}" a "mio2026"?`))return;
+  try{
+    const res=await api(`/auth/users/${userId}/reset-password`,{method:"PUT"});
+    toast(res.detail,"success");
+  }catch(e){toast(e.message,"error");}
+}
+
 async function guardarPassword() {
   const cur=$("pw-current").value, nw=$("pw-new").value, conf=$("pw-confirm").value;
   if(!cur||!nw){toast("Completa todos los campos","error");return;}
