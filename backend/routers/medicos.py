@@ -113,25 +113,30 @@ def actualizar_medico(medico_id: int, data: schemas.MedicoCreate, db: Session = 
 
 
 @router.delete("/medicos/{medico_id}", status_code=204)
-def eliminar_medico(medico_id: int, db: Session = Depends(get_db)):
+def eliminar_medico(medico_id: int, force: bool = False, db: Session = Depends(get_db)):
     m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
     if not m:
         raise HTTPException(404, "Médico no encontrado")
 
-    tiene_activos = db.query(models.Turno.id).filter(
-        models.Turno.medico_id == medico_id,
-        models.Turno.estado.in_([
-            models.EstadoTurno.pendiente,
-            models.EstadoTurno.confirmado,
-        ]),
-    ).first()
-    if tiene_activos:
-        raise HTTPException(
-            400,
-            "No se puede eliminar: tiene turnos pendientes o confirmados. Cancelalos primero.",
-        )
+    if not force:
+        tiene_activos = db.query(models.Turno.id).filter(
+            models.Turno.medico_id == medico_id,
+            models.Turno.estado.in_([
+                models.EstadoTurno.pendiente,
+                models.EstadoTurno.confirmado,
+            ]),
+        ).first()
+        if tiene_activos:
+            raise HTTPException(
+                400,
+                "No se puede eliminar: tiene turnos pendientes o confirmados. Cancelalos primero.",
+            )
+
+    # Eliminar turnos, usuario y horarios asociados
+    db.query(models.Turno).filter(models.Turno.medico_id == medico_id).delete()
+    db.query(models.User).filter(models.User.medico_id == medico_id).delete()
     db.delete(m); db.commit()
-    log.info("Médico id=%s eliminado", medico_id)
+    log.info("Médico id=%s eliminado con sus datos asociados", medico_id)
 
 
 # ── Disponibilidad (slots libres de un médico para una fecha) ─

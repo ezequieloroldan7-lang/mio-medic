@@ -545,8 +545,8 @@ async function guardarMedico() {
   }catch(e){toast(e.message,"error");}
 }
 async function eliminarMedico(id) {
-  if(!confirm("¿Eliminar este profesional?"))return;
-  try{await api(`/medicos/${id}`,{method:"DELETE"});toast("Profesional eliminado","success");medicos=await api("/medicos");populateSelects();renderProfesionales();}
+  if(!confirm("¿Eliminar este profesional y todos sus datos asociados (turnos, usuario)?"))return;
+  try{await api(`/medicos/${id}?force=true`,{method:"DELETE"});toast("Profesional eliminado","success");medicos=await api("/medicos");populateSelects();renderProfesionales();}
   catch(e){toast(e.message,"error");}
 }
 
