@@ -239,7 +239,7 @@ async function renderDashboard() {
             <span class="dash-turno-consultorio">C${t.consultorio}</span>
             <span class="dash-turno-medico">${esc(t.medico?.apellido)}</span>
             <span class="badge badge-${t.estado}">${t.estado}</span>
-            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline btn-icon" onclick="event.stopPropagation();abrirEditarTurno(${t.id})">✏️</button></span>
+            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();abrirEditarTurno(${t.id})">Editar</button></span>
             ${infoHtml}
             ${obs}
           </div>`;
@@ -370,9 +370,9 @@ async function renderTurnos(q="") {
         <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)} — ${esc(t.medico?.especialidad?.nombre||"")}</span>
         <span class="badge badge-${t.estado}">${t.estado}</span>
         <span class="dash-turno-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarTurno(${t.id})" title="Editar">✏️</button>
-          <button class="btn btn-sm btn-outline btn-icon" onclick="cancelarTurno(${t.id})" title="Cancelar" style="color:var(--warning);border-color:var(--warning)">✕</button>
-          <button class="btn btn-sm btn-danger btn-icon" onclick="eliminarTurno(${t.id})" title="Eliminar">🗑️</button>
+          <button class="btn btn-sm btn-outline" onclick="abrirEditarTurno(${t.id})">Editar</button>
+          <button class="btn btn-sm btn-outline" onclick="cancelarTurno(${t.id})" style="color:var(--warning);border-color:var(--warning)">Cancelar</button>
+          <button class="btn btn-sm btn-danger" onclick="eliminarTurno(${t.id})">Eliminar</button>
         </span>
         ${infoHtml}
         ${obs}
@@ -459,9 +459,9 @@ async function renderPacientes(q="") {
           return `<div class="dash-turno-card" style="align-items:center">
             <span class="dash-turno-paciente" style="min-width:180px;flex:0 0 auto">${esc(p.apellido)}, ${esc(p.nombre)}</span>
             <span class="dash-turno-actions" style="order:-1;display:flex;gap:.25rem">
-              <button class="btn btn-sm btn-primary btn-icon" onclick="abrirNuevoTurnoPaciente(${p.id})" title="Nuevo turno">+</button>
-              <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
-              <button class="btn btn-sm btn-ghost btn-icon" onclick="eliminarPaciente(${p.id})" title="Eliminar">🗑</button>
+              <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
+              <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
             </span>
             ${infoStr}
           </div>`;
@@ -504,7 +504,7 @@ async function renderProfesionales() {
           <div class="prof-actions">
             <button class="btn btn-sm btn-outline" onclick="abrirAgregarHorario(${m.id})">+ Horario</button>
             <button class="btn btn-sm btn-outline" onclick="abrirEditarMedico(${m.id})">Editar</button>
-            <button class="btn btn-sm btn-ghost btn-icon" onclick="eliminarMedico(${m.id})" title="Eliminar">🗑</button>
+            <button class="btn btn-sm btn-danger" onclick="eliminarMedico(${m.id})">Eliminar</button>
           </div>
         </div>`;
     }).join("");
@@ -678,9 +678,33 @@ function abrirNuevoTurnoPaciente(pacienteId) {
   if(p){$("turno-paciente-input").value=`${p.apellido} ${p.nombre}`;$("turno-paciente-id").value=p.id;}
   navTo("view-agenda");
 }
+function _validarHorarioMedico(medicoId, fechaHora, consultorio) {
+  const m = medicos.find(x => x.id === medicoId);
+  if (!m || !m.horarios || !m.horarios.length) return null;
+  const dt = new Date(fechaHora);
+  const dia = dt.getDay() - 1; // 0=Lun ... 4=Vie (-1=Dom, 5=Sab)
+  const hhmm = String(dt.getHours()).padStart(2,"0") + ":" + String(dt.getMinutes()).padStart(2,"0");
+  const horariosDelDia = m.horarios.filter(h => h.dia_semana === dia && h.consultorio === consultorio);
+  if (!horariosDelDia.length) {
+    const diasNombre = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+    return `${m.nombre} ${m.apellido} no tiene horarios cargados para ${diasNombre[dia] || "ese día"} en Consultorio ${consultorio}.`;
+  }
+  const enRango = horariosDelDia.some(h => hhmm >= h.hora_inicio && hhmm < h.hora_fin);
+  if (!enRango) {
+    const rangos = horariosDelDia.map(h => `${h.hora_inicio}–${h.hora_fin}`).join(", ");
+    return `El horario ${hhmm} está fuera de la franja del profesional (${rangos}) en Consultorio ${consultorio}.`;
+  }
+  return null;
+}
+
 async function guardarTurno() {
   const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
   if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
+
+  // Validar franja horaria del profesional
+  const alertaHorario = _validarHorarioMedico(medicoId, $("turno-fecha-hora").value, parseInt($("turno-consultorio").value));
+  if (alertaHorario && !confirm(alertaHorario + "\n\n¿Agendar de todas formas?")) return;
+
   try{
     // Actualizar financiador/plan del paciente si cambiaron
     const fin=$("turno-financiador").value.trim().toUpperCase()||null;
