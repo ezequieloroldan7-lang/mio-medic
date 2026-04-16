@@ -194,6 +194,15 @@ async function init() {
     if (selMed) selMed.value = currentUser.medico_id;
   }
   initPacienteAutocomplete("turno-paciente-input","turno-paciente-id");
+
+  // Mensaje de bienvenida para profesionales
+  if (_isMedico && !sessionStorage.getItem("welcome_shown")) {
+    const m = medicos.find(x => x.id === currentUser.medico_id);
+    const nombre = m ? `${m.nombre} ${m.apellido}` : currentUser.display_name;
+    toast(`Bienvenido/a ${nombre} ❤️`, "success");
+    sessionStorage.setItem("welcome_shown", "1");
+  }
+
   renderDashboard();
 }
 
