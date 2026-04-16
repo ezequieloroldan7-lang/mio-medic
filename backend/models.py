@@ -88,6 +88,8 @@ class User(Base):
     username      = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     display_name  = Column(String, nullable=False)
-    role          = Column(String, nullable=False, default="medico")  # "admin" o "medico"
+    role          = Column(String, nullable=False, default="medico")  # "admin", "administrativo" o "medico"
     medico_id     = Column(Integer, ForeignKey("medicos.id"), nullable=True)
+    telefono      = Column(String)
+    email         = Column(String)
     medico        = relationship("Medico")

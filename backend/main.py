@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session, joinedload
 import models
 from auth import require_admin
 from database import SessionLocal, engine, get_db
-from routers import medicos, pacientes, turnos
+from routers import medicos, pacientes, personal, turnos
 from routers.auth_router import router as auth_router
 from whatsapp import enviar_confirmacion
 
@@ -117,6 +117,25 @@ def _migrate_db():
                 conn.execute(text("ALTER TABLE pacientes ADD COLUMN plan TEXT"))
                 log.info("Migración: agregada columna plan")
 
+    # users: telefono / email para administrativas
+    if "users" in insp.get_table_names():
+        ucols = [c["name"] for c in insp.get_columns("users")]
+        with engine.begin() as conn:
+            if "telefono" not in ucols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN telefono TEXT"))
+                log.info("Migración: users.telefono")
+            if "email" not in ucols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN email TEXT"))
+                log.info("Migración: users.email")
+
+        # Rename del usuario 'mioturnos' → 'admin' (si no existe ya 'admin')
+        with engine.begin() as conn:
+            row_admin = conn.execute(text("SELECT id FROM users WHERE username='admin'")).first()
+            row_mio   = conn.execute(text("SELECT id FROM users WHERE username='mioturnos'")).first()
+            if row_mio and not row_admin:
+                conn.execute(text("UPDATE users SET username='admin', display_name='Admin' WHERE username='mioturnos'"))
+                log.info("Migración: usuario 'mioturnos' renombrado a 'admin'")
+
     # Eliminar medicos de prueba (dejar solo Garrido)
     db = SessionLocal()
     try:
@@ -198,6 +217,7 @@ app.include_router(auth_router)
 app.include_router(pacientes.router)
 app.include_router(turnos.router)
 app.include_router(medicos.router)
+app.include_router(personal.router)
 
 # Servir frontend estático
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
@@ -342,21 +362,24 @@ def _seed_datos_iniciales():
 
 
 def _seed_admin_user():
-    """Crea el usuario admin MIO TURNOS y usuarios por profesional si no existen."""
+    """Crea el usuario admin y un usuario por profesional si no existen."""
     from auth import hash_password
     db = SessionLocal()
     try:
-        # Admin / secretaria
-        if not db.query(models.User).filter(models.User.username == "mioturnos").first():
+        # Admin: si no existe ni 'admin' ni 'mioturnos', lo creamos como 'admin'.
+        existing = db.query(models.User).filter(
+            models.User.username.in_(["admin", "mioturnos"])
+        ).first()
+        if not existing:
             admin = models.User(
-                username="mioturnos",
+                username="admin",
                 password_hash=hash_password("mio2026"),
-                display_name="MIO TURNOS",
+                display_name="Admin",
                 role="admin",
             )
             db.add(admin)
             db.commit()
-            log.info("Usuario admin 'mioturnos' creado (password: mio2026).")
+            log.info("Usuario admin 'admin' creado (password: mio2026).")
 
         # Un usuario por cada médico que no tenga usuario
         medicos_sin_user = db.query(models.Medico).filter(
