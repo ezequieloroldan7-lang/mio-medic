@@ -519,8 +519,19 @@ async function renderPacientes(q="") {
     const lista = await api(q ? `/pacientes?q=${encodeURIComponent(q)}` : "/pacientes");
     const ordenados = _ordenarPacientes(lista);
     $("pacientes-count").textContent = `${lista.length} pacientes`;
+    const queryRaw = q.trim();
+    const queryEsc = esc(queryRaw);
+    const emptyMsg = queryRaw
+      ? `<div style="text-align:center;color:var(--muted);padding:2rem">
+           <div style="margin-bottom:.75rem">No se encontró ningún paciente con <strong>"${queryEsc}"</strong>.</div>
+           <button class="btn btn-primary btn-sm" id="btn-crear-paciente-vacio">+ Crear paciente "${queryEsc}"</button>
+         </div>`
+      : `<div style="text-align:center;color:var(--muted);padding:2rem">
+           <div style="margin-bottom:.75rem">No hay pacientes todavía.</div>
+           <button class="btn btn-primary btn-sm" id="btn-crear-paciente-vacio">+ Agregar primer paciente</button>
+         </div>`;
     $("tabla-pacientes").innerHTML = ordenados.length === 0
-      ? `<div style="text-align:center;color:var(--muted);padding:2rem">Sin resultados</div>`
+      ? emptyMsg
       : ordenados.map(p => {
           const info = [];
           if (p.nro_hc) info.push(`HC: ${esc(p.nro_hc)}`);
@@ -539,6 +550,10 @@ async function renderPacientes(q="") {
             </span>
           </div>`;
         }).join("");
+    if (ordenados.length === 0) {
+      const btn = document.getElementById("btn-crear-paciente-vacio");
+      if (btn) btn.addEventListener("click", () => abrirNuevoPaciente(queryRaw));
+    }
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
 }
 $("buscar-paciente").addEventListener("input", e => renderPacientes(e.target.value));
@@ -844,10 +859,17 @@ async function eliminarTurno(id) {
 }
 
 /* ── Modal Paciente ─────────────────────────────────────── */
-function abrirNuevoPaciente() {
+function abrirNuevoPaciente(prefill) {
   pacienteEditing=null; $("modal-paciente-titulo").textContent="Nuevo Paciente";
   ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-financiador","pac-plan","pac-deriva"].forEach(id=>$(id).value="");
+  if (typeof prefill === "string" && prefill.trim()) {
+    // "APELLIDO NOMBRE" o solo "APELLIDO" → primer token a apellido, resto a nombre
+    const partes = prefill.trim().split(/\s+/);
+    $("pac-apellido").value = (partes.shift() || "").toUpperCase();
+    $("pac-nombre").value   = partes.join(" ").toUpperCase();
+  }
   $("modal-paciente").classList.add("open");
+  (($("pac-apellido").value ? $("pac-nombre") : $("pac-apellido")) || {}).focus?.();
 }
 async function abrirEditarPaciente(id) {
   const p=await api(`/pacientes/${id}`); pacienteEditing=id;
