@@ -952,7 +952,11 @@ document.addEventListener("keydown", e=>{
   if (e.key === "3") navTo("view-turnos");
   if (e.key === "4") navTo("view-pacientes");
   if (e.key === "5") navTo("view-profesionales");
-  if (e.key.toLowerCase() === "n" && document.querySelector("#view-agenda.active")) abrirNuevoTurno();
+  if (e.key.toLowerCase() === "n") {
+    if (document.querySelector("#view-agenda.active"))        abrirNuevoTurno();
+    else if (document.querySelector("#view-pacientes.active")) abrirNuevoPaciente();
+    else if (document.querySelector("#view-profesionales.active")) abrirNuevoMedico();
+  }
 });
 
 /* ── Helpers ─────────────────────────────────────────────── */

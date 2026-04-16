@@ -724,13 +724,27 @@ tr:hover td { background: #fbf8f4; }
 @media (pointer: coarse) {
   .nav-item { padding: .85rem 1.1rem; min-height: 48px; }
   .btn { min-height: 44px; }
-  .btn-sm { min-height: 36px; }
-  .btn-icon { min-width: 40px; min-height: 40px; justify-content: center; }
+  .btn-sm { min-height: 40px; padding: .5rem .75rem; }
+  .btn-icon { min-width: 44px; min-height: 44px; justify-content: center; }
   .time-slot { min-height: 44px; }
-  .horario-pill button { min-width: 28px; min-height: 28px; font-size: 1rem; }
-  .modal-close { width: 40px; height: 40px; font-size: 1.3rem; }
+  .horario-pill button { min-width: 36px; min-height: 36px; font-size: 1.05rem; }
+  .modal-close { width: 44px; height: 44px; font-size: 1.3rem; }
   th.sortable { min-height: 44px; }
   .nav-kbd { display: none; }
+
+  /* Form inputs: 44px tap target + tamaño legible sin zoom en iOS */
+  input, select, textarea { min-height: 44px; font-size: 16px; padding: .6rem .85rem; }
+  textarea { min-height: 88px; }
+  input[type="checkbox"], input[type="radio"] { min-height: 0; width: 20px; height: 20px; }
+  .form-group label { font-size: .72rem; }
+
+  /* Search bar + filtros */
+  .search-bar input { min-height: 44px; }
+  .cal-toolbar input[type=date] { min-height: 44px; padding: .55rem .7rem; }
+
+  /* Acciones dentro de tarjetas/filas: separación para evitar toques accidentales */
+  .dash-turno-actions .btn,
+  .prof-actions .btn { min-height: 40px; }
 }
 
 /* ── Nav group (flechas juntas) ─────────────────────────────── */
