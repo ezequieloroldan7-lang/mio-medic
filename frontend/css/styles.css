@@ -682,3 +682,33 @@ tr:hover td { background: #fbf8f4; }
   font-size: 2.5rem; opacity: .35;
   margin-bottom: .75rem; display: block;
 }
+
+/* ── Dashboard turno cards ──────────────────────────────────── */
+.dash-turnos-list { display:flex; flex-direction:column; gap:.6rem; }
+.dash-turno-card {
+  background:#fff; border:1.5px solid var(--border); border-radius:var(--radius);
+  padding:.85rem 1rem; display:flex; flex-wrap:wrap; gap:.4rem .8rem;
+  align-items:center; transition:border-color .15s; cursor:pointer;
+}
+.dash-turno-card:hover { border-color:var(--primary-lt); }
+.dash-turno-hora { font-weight:600; font-size:.9rem; color:var(--primary); min-width:50px; }
+.dash-turno-paciente { font-weight:500; font-size:.88rem; flex:1; min-width:140px; }
+.dash-turno-medico { font-size:.78rem; color:var(--muted); }
+.dash-turno-consultorio { font-size:.72rem; background:var(--accent); padding:.2rem .5rem; border-radius:4px; }
+.dash-turno-obs { width:100%; font-size:.78rem; color:#666; margin-top:.2rem; line-height:1.4; white-space:pre-wrap; }
+.dash-turno-info { font-size:.72rem; color:var(--muted); display:flex; gap:.6rem; flex-wrap:wrap; }
+.dash-turno-actions { margin-left:auto; }
+
+/* Patient info row in turno modal */
+.turno-pac-info {
+  display:flex; gap:.8rem; flex-wrap:wrap; font-size:.78rem; color:var(--muted);
+  padding:.5rem .75rem; background:var(--accent); border-radius:6px; margin-top:.3rem;
+}
+.turno-pac-info span { font-weight:500; color:var(--text); }
+
+/* New patient fields in turno modal */
+.turno-new-pac-fields {
+  display:none; gap:.5rem; flex-wrap:wrap; margin-top:.4rem;
+}
+.turno-new-pac-fields.open { display:flex; }
+.turno-new-pac-fields .form-group { flex:1; min-width:120px; }
