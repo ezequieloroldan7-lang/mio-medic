@@ -382,7 +382,7 @@ async function renderPacientes(q="") {
       : ordenados.map(p => `<tr>
           <td>${esc(p.nro_hc) || "—"}</td><td>${esc(p.apellido)}, ${esc(p.nombre)}</td>
           <td>${esc(p.telefono) || "—"}</td><td>${esc(p.email) || "—"}</td>
-          <td>${esc(p.cobertura) || "—"}</td><td>${esc(p.dni) || "—"}</td>
+          <td>${esc(p.financiador) || "—"}${p.plan ? " — "+esc(p.plan) : ""}</td><td>${esc(p.dni) || "—"}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm btn-outline btn-icon" onclick="abrirEditarPaciente(${p.id})" title="Editar">✏️</button>
             <button class="btn btn-sm btn-primary btn-icon" onclick="abrirNuevoTurnoPaciente(${p.id})" title="Nuevo turno">📅</button>
@@ -594,7 +594,7 @@ async function eliminarTurno(id) {
 /* ── Modal Paciente ─────────────────────────────────────── */
 function abrirNuevoPaciente() {
   pacienteEditing=null; $("modal-paciente-titulo").textContent="Nuevo Paciente";
-  ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-cobertura","pac-deriva"].forEach(id=>$(id).value="");
+  ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-financiador","pac-plan","pac-deriva"].forEach(id=>$(id).value="");
   $("modal-paciente").classList.add("open");
 }
 async function abrirEditarPaciente(id) {
@@ -603,11 +603,11 @@ async function abrirEditarPaciente(id) {
   $("pac-nombre").value=p.nombre;$("pac-apellido").value=p.apellido;
   $("pac-tel").value=p.telefono||"";$("pac-email").value=p.email||"";
   $("pac-dni").value=p.dni||"";$("pac-hc").value=p.nro_hc||"";
-  $("pac-cobertura").value=p.cobertura||"";$("pac-deriva").value=p.deriva||"";
+  $("pac-financiador").value=p.financiador||"";$("pac-plan").value=p.plan||"";$("pac-deriva").value=p.deriva||"";
   $("modal-paciente").classList.add("open");
 }
 async function guardarPaciente() {
-  const body={nombre:$("pac-nombre").value.trim(),apellido:$("pac-apellido").value.trim(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,cobertura:$("pac-cobertura").value.trim()||null,deriva:$("pac-deriva").value.trim()||null};
+  const body={nombre:$("pac-nombre").value.trim(),apellido:$("pac-apellido").value.trim(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.toUpperCase().trim()||null,plan:$("pac-plan").value.trim()||null,deriva:$("pac-deriva").value.trim()||null};
   if(!body.nombre||!body.apellido){toast("Nombre y apellido son obligatorios.","error");return;}
   try{
     if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}

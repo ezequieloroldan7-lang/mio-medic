@@ -21,7 +21,8 @@ class Paciente(Base):
     email     = Column(String)
     dni       = Column(String, index=True)
     nro_hc    = Column(String, index=True)
-    cobertura = Column(String, index=True)
+    financiador = Column(String, index=True)
+    plan        = Column(String)
     deriva    = Column(String)
     turnos    = relationship("Turno", back_populates="paciente")
 

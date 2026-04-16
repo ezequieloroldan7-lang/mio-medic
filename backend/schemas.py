@@ -8,7 +8,7 @@ class PacienteBase(BaseModel):
     nombre: str; apellido: str
     telefono: Optional[str]=None; email: Optional[str]=None
     dni: Optional[str]=None; nro_hc: Optional[str]=None
-    cobertura: Optional[str]=None; deriva: Optional[str]=None
+    financiador: Optional[str]=None; plan: Optional[str]=None; deriva: Optional[str]=None
 
 class PacienteCreate(PacienteBase): pass
 class PacienteOut(PacienteBase):

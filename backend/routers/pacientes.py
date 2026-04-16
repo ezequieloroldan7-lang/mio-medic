@@ -30,14 +30,20 @@ def obtener_paciente(paciente_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.PacienteOut, status_code=201)
 def crear_paciente(data: schemas.PacienteCreate, db: Session = Depends(get_db)):
-    p = models.Paciente(**data.model_dump())
+    dump = data.model_dump()
+    if dump.get("financiador"):
+        dump["financiador"] = dump["financiador"].upper()
+    p = models.Paciente(**dump)
     db.add(p); db.commit(); db.refresh(p); return p
 
 @router.put("/{paciente_id}", response_model=schemas.PacienteOut)
 def actualizar_paciente(paciente_id: int, data: schemas.PacienteCreate, db: Session = Depends(get_db)):
     p = db.query(models.Paciente).filter(models.Paciente.id == paciente_id).first()
     if not p: raise HTTPException(404, "Paciente no encontrado")
-    for k, v in data.model_dump().items(): setattr(p, k, v)
+    payload = data.model_dump()
+    if payload.get("financiador"):
+        payload["financiador"] = payload["financiador"].upper()
+    for k, v in payload.items(): setattr(p, k, v)
     db.commit(); db.refresh(p); return p
 
 @router.delete("/{paciente_id}", status_code=204)
