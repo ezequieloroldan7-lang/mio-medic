@@ -46,6 +46,52 @@ function toast(msg, type="info") {
 }
 function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.href="/login"; }
 
+/* ── Validación inline de formularios ───────────────────── */
+function markFieldError(id, msg) {
+  const el = document.getElementById(id); if (!el) return;
+  el.classList.add("has-error");
+  const group = el.closest(".form-group") || el.parentElement;
+  if (!group) return;
+  let err = group.querySelector(":scope > .field-error");
+  if (!err) {
+    err = document.createElement("div");
+    err.className = "field-error";
+    group.appendChild(err);
+  }
+  err.textContent = msg;
+}
+function clearFieldError(el) {
+  if (!el) return;
+  el.classList.remove("has-error");
+  const group = el.closest(".form-group") || el.parentElement;
+  const err = group && group.querySelector(":scope > .field-error");
+  if (err) err.remove();
+}
+function clearFormErrors(modalId) {
+  const root = document.getElementById(modalId) || document;
+  root.querySelectorAll(".has-error").forEach(el => el.classList.remove("has-error"));
+  root.querySelectorAll(".field-error").forEach(el => el.remove());
+}
+function validateRequired(fields) {
+  // fields: [{id, msg}]. Returns true si todos OK.
+  let firstError = null;
+  let ok = true;
+  for (const f of fields) {
+    const el = document.getElementById(f.id);
+    const val = el ? String(el.value || "").trim() : "";
+    if (!val) {
+      markFieldError(f.id, f.msg || "Este campo es obligatorio");
+      if (!firstError) firstError = el;
+      ok = false;
+    }
+  }
+  if (firstError) firstError.focus();
+  return ok;
+}
+// Limpia el error del campo al escribir/cambiar
+document.addEventListener("input",  e => { if (e.target.classList && e.target.classList.contains("has-error")) clearFieldError(e.target); }, true);
+document.addEventListener("change", e => { if (e.target.classList && e.target.classList.contains("has-error")) clearFieldError(e.target); }, true);
+
 async function api(path, opts={}) {
   const url = API + path;
   const token = localStorage.getItem("token");
@@ -725,8 +771,13 @@ function _validarHorarioMedico(medicoId, fechaHora, consultorio) {
 }
 
 async function guardarTurno() {
+  clearFormErrors("modal-turno");
   const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
-  if(!pacienteId||!medicoId||!$("turno-fecha-hora").value){toast("Completá todos los campos obligatorios.","error");return;}
+  let ok = true;
+  if (!pacienteId) { markFieldError("turno-paciente-input", "Seleccioná un paciente de la lista"); ok = false; }
+  if (!medicoId)   { markFieldError("turno-medico", "Seleccioná un profesional"); ok = false; }
+  if (!$("turno-fecha-hora").value) { markFieldError("turno-fecha-hora", "Indicá fecha y hora"); ok = false; }
+  if (!ok) { toast("Completá los campos obligatorios.","error"); return; }
 
   // Validar franja horaria del profesional
   const alertaHorario = _validarHorarioMedico(medicoId, $("turno-fecha-hora").value, parseInt($("turno-consultorio").value));
@@ -808,8 +859,12 @@ async function abrirEditarPaciente(id) {
   $("modal-paciente").classList.add("open");
 }
 async function guardarPaciente() {
+  clearFormErrors("modal-paciente");
+  if (!validateRequired([
+    {id:"pac-nombre",   msg:"El nombre es obligatorio"},
+    {id:"pac-apellido", msg:"El apellido es obligatorio"},
+  ])) { toast("Completá los campos obligatorios.","error"); return; }
   const body={nombre:$("pac-nombre").value.trim().toUpperCase(),apellido:$("pac-apellido").value.trim().toUpperCase(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim().toLowerCase()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.trim().toUpperCase()||null,plan:$("pac-plan").value.trim().toUpperCase()||null,deriva:$("pac-deriva").value.trim().toUpperCase()||null};
-  if(!body.nombre||!body.apellido){toast("Nombre y apellido son obligatorios.","error");return;}
   try{
     if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
     else{await api("/pacientes",{method:"POST",body:JSON.stringify(body)});toast("Paciente creado ✓","success");}
@@ -839,7 +894,7 @@ document.addEventListener("keydown", e=>{
 });
 
 /* ── Helpers ─────────────────────────────────────────────── */
-function cerrarModal(id){$(id).classList.remove("open");}
+function cerrarModal(id){$(id).classList.remove("open"); clearFormErrors(id);}
 
 /* ── Cambiar contraseña ───────────────────────────────────── */
 function abrirCambiarPassword() {
@@ -855,16 +910,20 @@ async function resetearPassword(userId, username) {
 }
 
 async function guardarPassword() {
+  clearFormErrors("modal-password");
   const cur=$("pw-current").value, nw=$("pw-new").value, conf=$("pw-confirm").value;
-  if(!cur||!nw){toast("Completa todos los campos","error");return;}
-  if(nw!==conf){toast("Las contraseñas no coinciden","error");return;}
-  if(nw.length<4){toast("La contraseña debe tener al menos 4 caracteres","error");return;}
+  let ok = true;
+  if (!cur) { markFieldError("pw-current", "Ingresá tu contraseña actual"); ok = false; }
+  if (!nw)  { markFieldError("pw-new",     "Ingresá la nueva contraseña"); ok = false; }
+  if (!ok) { toast("Completá los campos obligatorios.","error"); return; }
+  if (nw.length < 4) { markFieldError("pw-new", "Mínimo 4 caracteres"); $("pw-new").focus(); return; }
+  if (nw !== conf)   { markFieldError("pw-confirm", "Las contraseñas no coinciden"); $("pw-confirm").focus(); return; }
   try{
     await api("/auth/change-password",{method:"PUT",body:JSON.stringify({current_password:cur,new_password:nw})});
     toast("Contraseña actualizada","success"); cerrarModal("modal-password");
   }catch(e){toast(e.message,"error");}
 }
-document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("open");}));
+document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m){m.classList.remove("open"); clearFormErrors(m.id);}}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
 
 init().then(() => {

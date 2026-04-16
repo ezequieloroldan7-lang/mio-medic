@@ -334,6 +334,19 @@ input:focus, select:focus, textarea:focus {
 }
 textarea { resize: vertical; min-height: 70px; }
 
+/* Validación inline: borde rojo + mensaje bajo el campo */
+input.has-error, select.has-error, textarea.has-error {
+  border-color: var(--danger);
+  background: var(--danger-lt);
+}
+input.has-error:focus, select.has-error:focus, textarea.has-error:focus {
+  box-shadow: 0 0 0 3px rgba(160,85,85,.18);
+}
+.field-error {
+  color: var(--danger); font-size: .72rem; font-weight: 500;
+  margin-top: .1rem;
+}
+
 /* ── Table ──────────────────────────────────────────────────── */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .85rem; }
