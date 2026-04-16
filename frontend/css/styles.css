@@ -554,6 +554,9 @@ tr:hover td { background: #fbf8f4; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary-lt); }
 
 /* ── Responsive — Tablet ─────────────────────────────────────── */
+/* Sidebar user: oculto en desktop, visible en mobile */
+.sidebar-user-mobile { display: none !important; }
+
 @media (max-width: 900px) {
   .main { padding: 1.25rem 1.25rem; }
   .prof-grid { grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); }
@@ -714,6 +717,3 @@ tr:hover td { background: #fbf8f4; }
 }
 .turno-new-pac-fields.open { display:flex; }
 .turno-new-pac-fields .form-group { flex:1; min-width:120px; }
-
-/* Sidebar user items: ocultos en desktop, visibles en mobile */
-.sidebar-user-mobile { display: none !important; }
