@@ -9,9 +9,6 @@ google-credentials.json
 *.db-wal
 *.db-journal
 
-# Branding / logo subido por admin (contenido dinámico, no código)
-backend/data/logo.*
-
 # Datos sensibles de pacientes (archivo Excel, no codigo .py)
 pacientes.xlsx
 pacientes.csv

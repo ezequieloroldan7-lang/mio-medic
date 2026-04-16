@@ -32,16 +32,7 @@
       letter-spacing: .5rem;
       color: #6B5B4F;
       margin-bottom: .25rem;
-      min-height: 2.5rem;
     }
-    .login-logo img {
-      max-height: 90px;
-      max-width: 80%;
-      display: none;
-      margin: 0 auto;
-    }
-    .login-logo img.loaded { display: block; }
-    .login-logo img.loaded + .login-logo-text { display: none; }
     .login-subtitle {
       font-size: .7rem;
       font-weight: 300;
@@ -101,10 +92,7 @@
 </head>
 <body>
   <div class="login-card">
-    <div class="login-logo">
-      <img src="/branding/logo" alt="" onload="this.classList.add('loaded')" onerror="this.remove()"/>
-      <span class="login-logo-text">MIO</span>
-    </div>
+    <div class="login-logo">MIO</div>
     <div class="login-subtitle">Medicina Integral Oncologica & Estetica</div>
     <form id="login-form">
       <div class="form-group">
