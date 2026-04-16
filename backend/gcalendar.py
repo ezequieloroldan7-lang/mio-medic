@@ -15,6 +15,7 @@ Setup:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime, timedelta
@@ -27,7 +28,7 @@ log = logging.getLogger("miomedic.gcalendar")
 _service = None
 _initialized = False
 
-CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_JSON", "google-credentials.json")
+CREDENTIALS_ENV = os.getenv("GOOGLE_CREDENTIALS_JSON", "google-credentials.json")
 TIMEZONE = "America/Argentina/Buenos_Aires"
 
 
@@ -49,22 +50,33 @@ def _get_service():
         )
         return None
 
-    # Resolver ruta relativa al directorio del backend
-    cred_path = Path(CREDENTIALS_PATH)
-    if not cred_path.is_absolute():
-        cred_path = Path(__file__).resolve().parent / cred_path
-
-    if not cred_path.exists():
-        log.warning("Google Calendar: archivo de credenciales no encontrado en %s", cred_path)
-        return None
-
     try:
+        # Si GOOGLE_CREDENTIALS_JSON contiene JSON directo (ej. en Render)
+        cred_info = json.loads(CREDENTIALS_ENV)
+        creds = Credentials.from_service_account_info(
+            cred_info,
+            scopes=["https://www.googleapis.com/auth/calendar"],
+        )
+        log.info("Google Calendar inicializado desde variable de entorno")
+    except (json.JSONDecodeError, ValueError):
+        # Si no es JSON, tratarlo como ruta a archivo
+        cred_path = Path(CREDENTIALS_ENV)
+        if not cred_path.is_absolute():
+            cred_path = Path(__file__).resolve().parent / cred_path
+
+        if not cred_path.exists():
+            log.warning("Google Calendar: archivo de credenciales no encontrado en %s", cred_path)
+            return None
+
         creds = Credentials.from_service_account_file(
             str(cred_path),
             scopes=["https://www.googleapis.com/auth/calendar"],
         )
+        log.info("Google Calendar inicializado desde archivo %s", cred_path)
+
+    try:
         _service = build("calendar", "v3", credentials=creds, cache_discovery=False)
-        log.info("Google Calendar inicializado OK (service account: %s)", creds.service_account_email)
+        log.info("Google Calendar OK (service account: %s)", creds.service_account_email)
         return _service
     except Exception as e:  # noqa: BLE001
         log.error("Error al inicializar Google Calendar: %s", e)
