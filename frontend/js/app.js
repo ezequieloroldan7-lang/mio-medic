@@ -194,7 +194,9 @@ async function init() {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
   }
 
-  [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  const [m, e, p] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  if (!m || !e || !p) return;
+  medicos = m; especialidades = e; pacientes = p;
   populateSelects();
 
   // Si es medico, preseleccionar su profesional en el filtro
@@ -233,6 +235,7 @@ function _filtrarPorRol(turnos) {
 async function renderDashboard() {
   try {
     const todos_raw = await api(`/turnos?fecha=${new Date().toISOString().slice(0,10)}`);
+    if (!todos_raw) return;
     const todos = _filtrarPorRol(todos_raw);
 
     const cnt = (estado) => todos.filter(t => t.estado === estado).length;
@@ -271,6 +274,7 @@ async function renderAgenda() {
   $("agenda-fecha").value=fecha;
   $("agenda-titulo").textContent=fmtFecha(fecha+"T12:00:00");
   const turnos_raw=await api(`/turnos?fecha=${fecha}`);
+  if(!turnos_raw)return;
   const turnos=_filtrarPorRol(turnos_raw);
   const activos=turnos.filter(t=>t.estado!=="cancelado");
   renderColumna(1,activos.filter(t=>t.consultorio===1),fecha);
@@ -383,6 +387,7 @@ $("btn-agenda-next").addEventListener("click",()=>{const d=new Date($("agenda-fe
 async function renderTurnos(q="") {
   const fecha=$("filtro-fecha")?.value||"";
   const turnos_raw=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
+  if(!turnos_raw)return;
   const turnos=_filtrarPorRol(turnos_raw);
   const f=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
   $("tabla-turnos").innerHTML=f.length===0
