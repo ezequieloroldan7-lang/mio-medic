@@ -820,7 +820,30 @@ async function renderTurnos(q) {
   const fecha=$("filtro-fecha")?.value||"";
   const turnos_raw=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
   const turnos=_filtrarPorRol(turnos_raw);
-  const f=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
+  const filtrados=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
+  const orden=$("filtro-orden-turnos")?.value||"fecha_desc";
+  const cmpStr=(a,b)=>(a||"").toString().localeCompare((b||"").toString(),"es",{sensitivity:"base"});
+  const cmpHc=(a,b)=>{
+    const na=parseInt(a,10), nb=parseInt(b,10);
+    const aNum=!isNaN(na), bNum=!isNaN(nb);
+    if(aNum && bNum) return na-nb;
+    if(aNum) return -1;
+    if(bNum) return 1;
+    return cmpStr(a,b);
+  };
+  const f=[...filtrados].sort((a,b)=>{
+    const pa=a.paciente||{}, pb=b.paciente||{};
+    switch(orden){
+      case "fecha_asc":     return a.fecha_hora_inicio.localeCompare(b.fecha_hora_inicio);
+      case "apellido_asc":  return cmpStr(pa.apellido, pb.apellido) || cmpStr(pa.nombre, pb.nombre);
+      case "apellido_desc": return cmpStr(pb.apellido, pa.apellido) || cmpStr(pb.nombre, pa.nombre);
+      case "nombre_asc":    return cmpStr(pa.nombre, pb.nombre)   || cmpStr(pa.apellido, pb.apellido);
+      case "nombre_desc":   return cmpStr(pb.nombre, pa.nombre)   || cmpStr(pb.apellido, pa.apellido);
+      case "hc_asc":        return cmpHc(pa.nro_hc, pb.nro_hc);
+      case "hc_desc":       return cmpHc(pb.nro_hc, pa.nro_hc);
+      default:              return b.fecha_hora_inicio.localeCompare(a.fecha_hora_inicio);
+    }
+  });
   $("tabla-turnos").innerHTML=f.length===0
     ?`<div style="text-align:center;color:var(--muted);padding:2rem">Sin turnos</div>`
     :f.map(t=>{
@@ -851,6 +874,7 @@ async function renderTurnos(q) {
 }
 $("filtro-fecha")?.addEventListener("change",()=>renderTurnos());
 $("filtro-buscar-turno")?.addEventListener("input",e=>renderTurnos(e.target.value));
+$("filtro-orden-turnos")?.addEventListener("change",()=>renderTurnos());
 
 /* ── Exportar Excel (XLSX) ──────────────────────────────── */
 async function exportarTurnosXLSX() {
@@ -1320,6 +1344,7 @@ async function agregarPacienteDesdeTurno() {
   const plan = $("turno-plan").value.trim().toUpperCase() || null;
   const nro_hc = $("turno-new-hc").value.trim() || null;
   const deriva = ($("turno-new-deriva")?.value || "").trim().toUpperCase() || null;
+  if (!_confirmarSiDuplicado({dni: dni || null, nro_hc})) return;
   try {
     const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({
       nombre,
@@ -1445,12 +1470,14 @@ async function guardarTurno() {
         if (!nro_hc) {
           try { const r = await api("/pacientes/next-hc"); nro_hc = r.next_hc; } catch(_) {}
         }
+        const dniNuevo = ($("turno-new-dni")?.value||"").trim() || null;
+        if (!_confirmarSiDuplicado({dni: dniNuevo, nro_hc})) return;
         const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({
           nombre: $("turno-new-nombre").value.trim().toUpperCase(),
           apellido: $("turno-new-apellido").value.trim().toUpperCase(),
           telefono: $("turno-new-tel").value.trim(),
           email: ($("turno-new-email").value||"").trim().toLowerCase() || null,
-          dni: ($("turno-new-dni")?.value||"").trim() || null,
+          dni: dniNuevo,
           deriva: ($("turno-new-deriva")?.value||"").trim().toUpperCase() || null,
           nro_hc, financiador: fin, plan,
         })});
@@ -1538,6 +1565,34 @@ async function abrirEditarPaciente(id) {
   $("pac-financiador").value=p.financiador||"";$("pac-plan").value=p.plan||"";$("pac-deriva").value=p.deriva||"";
   $("modal-paciente").classList.add("open");
 }
+// Busca un paciente existente con DNI o HC iguales (case-insensitive,
+// ignorando el id excluido para permitir editar sin auto-match). Devuelve el
+// paciente encontrado o null. Usado para warnings de duplicado al alta/edición.
+function _buscarPacienteDuplicado({dni, nro_hc, excludeId} = {}) {
+  const norm = s => (s == null ? "" : String(s)).trim().toLowerCase();
+  const dniN = norm(dni), hcN = norm(nro_hc);
+  if (!dniN && !hcN) return null;
+  return pacientes.find(p => {
+    if (excludeId && p.id === excludeId) return false;
+    if (dniN && norm(p.dni) === dniN)   return true;
+    if (hcN  && norm(p.nro_hc) === hcN) return true;
+    return false;
+  }) || null;
+}
+// Si hay duplicado, pedir confirmación. Devuelve true si se puede continuar.
+function _confirmarSiDuplicado({dni, nro_hc, excludeId} = {}) {
+  const dup = _buscarPacienteDuplicado({dni, nro_hc, excludeId});
+  if (!dup) return true;
+  const campo = (dni && String(dup.dni||"").toLowerCase() === String(dni).trim().toLowerCase())
+    ? `DNI ${dup.dni}`
+    : `HC ${dup.nro_hc}`;
+  const msg = `⚠ Ya existe un paciente con el mismo ${campo}:\n` +
+              `  ${dup.apellido}, ${dup.nombre}` +
+              (dup.nro_hc ? ` (HC ${dup.nro_hc})` : "") +
+              `\n\n¿Guardar de todas formas?`;
+  return confirm(msg);
+}
+
 async function guardarPaciente() {
   clearFormErrors("modal-paciente");
   if (!validateRequired([
@@ -1546,7 +1601,10 @@ async function guardarPaciente() {
     {id:"pac-tel",      msg:"El teléfono es obligatorio"},
     {id:"pac-email",    msg:"El email es obligatorio"},
   ])) { toast("Completá los campos obligatorios.","error"); return; }
-  const body={nombre:$("pac-nombre").value.trim().toUpperCase(),apellido:$("pac-apellido").value.trim().toUpperCase(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim().toLowerCase()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.trim().toUpperCase()||null,plan:$("pac-plan").value.trim().toUpperCase()||null,deriva:$("pac-deriva").value.trim().toUpperCase()||null};
+  const dni = $("pac-dni").value.trim() || null;
+  const nro_hc = $("pac-hc").value.trim() || null;
+  if (!_confirmarSiDuplicado({dni, nro_hc, excludeId: pacienteEditing})) return;
+  const body={nombre:$("pac-nombre").value.trim().toUpperCase(),apellido:$("pac-apellido").value.trim().toUpperCase(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim().toLowerCase()||null,dni,nro_hc,financiador:$("pac-financiador").value.trim().toUpperCase()||null,plan:$("pac-plan").value.trim().toUpperCase()||null,deriva:$("pac-deriva").value.trim().toUpperCase()||null};
   await _withSubmitLock("modal-paciente", async () => {
     try{
       if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
