@@ -831,18 +831,24 @@ async function renderTurnos(q) {
     if(bNum) return 1;
     return cmpStr(a,b);
   };
+  // Desempate por fecha (más reciente primero) cuando el criterio primario
+  // no distingue — p.ej. dos turnos del mismo paciente quedan en orden cronológico.
+  const cmpFechaDesc = (a,b) => (b.fecha_hora_inicio||"").localeCompare(a.fecha_hora_inicio||"");
   const f=[...filtrados].sort((a,b)=>{
     const pa=a.paciente||{}, pb=b.paciente||{};
+    let primary;
     switch(orden){
-      case "fecha_asc":     return a.fecha_hora_inicio.localeCompare(b.fecha_hora_inicio);
-      case "apellido_asc":  return cmpStr(pa.apellido, pb.apellido) || cmpStr(pa.nombre, pb.nombre);
-      case "apellido_desc": return cmpStr(pb.apellido, pa.apellido) || cmpStr(pb.nombre, pa.nombre);
-      case "nombre_asc":    return cmpStr(pa.nombre, pb.nombre)   || cmpStr(pa.apellido, pb.apellido);
-      case "nombre_desc":   return cmpStr(pb.nombre, pa.nombre)   || cmpStr(pb.apellido, pa.apellido);
-      case "hc_asc":        return cmpHc(pa.nro_hc, pb.nro_hc);
-      case "hc_desc":       return cmpHc(pb.nro_hc, pa.nro_hc);
-      default:              return b.fecha_hora_inicio.localeCompare(a.fecha_hora_inicio);
+      case "fecha_asc":     return (a.fecha_hora_inicio||"").localeCompare(b.fecha_hora_inicio||"");
+      case "fecha_desc":    return cmpFechaDesc(a,b);
+      case "apellido_asc":  primary = cmpStr(pa.apellido, pb.apellido) || cmpStr(pa.nombre, pb.nombre); break;
+      case "apellido_desc": primary = cmpStr(pb.apellido, pa.apellido) || cmpStr(pb.nombre, pa.nombre); break;
+      case "nombre_asc":    primary = cmpStr(pa.nombre, pb.nombre)     || cmpStr(pa.apellido, pb.apellido); break;
+      case "nombre_desc":   primary = cmpStr(pb.nombre, pa.nombre)     || cmpStr(pb.apellido, pa.apellido); break;
+      case "hc_asc":        primary = cmpHc(pa.nro_hc, pb.nro_hc); break;
+      case "hc_desc":       primary = cmpHc(pb.nro_hc, pa.nro_hc); break;
+      default:              return cmpFechaDesc(a,b);
     }
+    return primary !== 0 ? primary : cmpFechaDesc(a,b);
   });
   $("tabla-turnos").innerHTML=f.length===0
     ?`<div style="text-align:center;color:var(--muted);padding:2rem">Sin turnos</div>`
