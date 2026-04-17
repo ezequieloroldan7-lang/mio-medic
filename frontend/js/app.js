@@ -610,11 +610,39 @@ async function renderAgenda() {
   ]);
   const turnos=_filtrarPorRol(turnos_raw);
   const activos=turnos.filter(t=>t.estado!=="cancelado");
-  const bloqueos = _isMedico
+  // La agenda mezcla turnos de todos los profesionales en la misma grilla, así
+  // que un bloqueo solo debe "cubrir" slots en la vista del propio profesional
+  // (rol medico). Para staff mostramos un resumen al costado — el backend
+  // valida al crear el turno si el profesional elegido está bloqueado.
+  const bloqueosMios = _isMedico
     ? bloqueos_raw.filter(b => b.medico_id === currentUser.medico_id)
-    : bloqueos_raw;
-  renderColumna(1,activos.filter(t=>t.consultorio===1),fecha,bloqueos);
-  renderColumna(2,activos.filter(t=>t.consultorio===2),fecha,bloqueos);
+    : [];
+  renderColumna(1,activos.filter(t=>t.consultorio===1),fecha,bloqueosMios);
+  renderColumna(2,activos.filter(t=>t.consultorio===2),fecha,bloqueosMios);
+  _renderBanderaBloqueos(_isMedico ? [] : bloqueos_raw);
+}
+
+function _renderBanderaBloqueos(bloqueos) {
+  const host = $("agenda-bloqueos-info");
+  if (!host) return;
+  if (!bloqueos || !bloqueos.length) { host.innerHTML = ""; host.style.display = "none"; return; }
+  const porMedico = new Map();
+  for (const b of bloqueos) {
+    const arr = porMedico.get(b.medico_id) || [];
+    arr.push(b); porMedico.set(b.medico_id, arr);
+  }
+  const pills = [];
+  for (const [medicoId, lista] of porMedico) {
+    const m = medicos.find(x => x.id === medicoId);
+    if (!m) continue;
+    const rangos = lista.map(b => _fmtRangoBloqueo(b)).join(", ");
+    pills.push(`<span class="horario-pill bloqueo-pill" title="${esc(lista.map(b => b.motivo || 'Bloqueo').join(' · '))}">
+      ${esc(m.nombre)} ${esc(m.apellido)} · ${esc(rangos)}</span>`);
+  }
+  host.innerHTML = pills.length
+    ? `<div style="font-size:.72rem;color:var(--muted);margin-right:.5rem">Bloqueos del día:</div>${pills.join("")}`
+    : "";
+  host.style.display = pills.length ? "flex" : "none";
 }
 
 const SLOT_MIN = 30;  // minutos por slot
