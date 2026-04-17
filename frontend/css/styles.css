@@ -450,6 +450,13 @@ body {
   z-index: 1;
 }
 .chip-bloqueado:hover { filter: brightness(0.95); }
+
+/* En modo oscuro los tonos -dk de algunos estados (primary-dk/medium brown)
+   quedan muy bajos de contraste contra el fondo -lt. Forzamos texto claro
+   para todos los chips — el color del estado se sigue leyendo en el borde
+   y en el fondo tintado. */
+[data-theme="dark"] .turno-chip { color: var(--text); }
+[data-theme="dark"] .chip-bloqueado { color: var(--text); }
 .chip-nombre { font-weight: 600; font-size: .78rem; line-height: 1.25; }
 .chip-hc     { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
 .chip-esp    { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
@@ -1010,6 +1017,14 @@ tr:hover td { background: var(--surface-hover); }
 }
 .dash-turno-info span { white-space:nowrap; }
 .dash-turno-actions { margin-left:auto; display:flex; gap:.35rem; flex-shrink:0; }
+
+/* Tinte de la card según estado: mismo criterio que los chips de agenda
+   (borde = color sólido, fondo = variante -lt tenue). */
+.dash-turno-card--pendiente  { background:var(--accent);     border-color:var(--primary-lt); border-left:3px solid var(--primary); }
+.dash-turno-card--confirmado { background:var(--success-lt); border-color:var(--success);    border-left:3px solid var(--success); }
+.dash-turno-card--cancelado  { background:var(--danger-lt);  border-color:var(--danger);     border-left:3px solid var(--danger);  }
+.dash-turno-card--ausente    { background:var(--ausente-lt); border-color:var(--ausente);    border-left:3px solid var(--ausente); }
+.dash-turno-card--realizado  { background:var(--info-lt);    border-color:var(--info);       border-left:3px solid var(--info);    }
 
 /* Tabla de pacientes (vista pestaña Pacientes) */
 #tabla-pacientes { overflow-x:auto; }

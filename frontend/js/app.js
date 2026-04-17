@@ -592,7 +592,7 @@ async function renderDashboard() {
           if (p?.telefono) info.push(esc(p.telefono));
           if (p?.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
           const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : "";
-          return `<div class="dash-turno-card" data-action="cambiar-estado-turno" data-id="${t.id}">
+          return `<div class="dash-turno-card dash-turno-card--${t.estado}" data-action="cambiar-estado-turno" data-id="${t.id}">
 
             <span class="dash-turno-hora">${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
             <span class="dash-turno-paciente">${esc(p?.nombre)} ${esc(p?.apellido)}</span>
@@ -921,7 +921,7 @@ async function renderTurnos(q) {
       if(p?.telefono)info.push(`WhatsApp: ${esc(p.telefono)}`);
       if(p?.financiador)info.push(esc(p.financiador)+(p.plan?" — "+esc(p.plan):""));
       const infoHtml=info.length?`<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>`:"";
-      return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
+      return `<div class="dash-turno-card dash-turno-card--${t.estado}" data-action="editar-turno" data-id="${t.id}">
         <span class="dash-turno-hora">${fmtFechaCorta(t.fecha_hora_inicio)} ${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
         <span class="dash-turno-paciente">${esc(p?.nombre)} ${esc(p?.apellido)}</span>
         <span class="dash-turno-consultorio">C${t.consultorio}</span>
