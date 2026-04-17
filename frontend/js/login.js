@@ -52,3 +52,13 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     errEl.style.display = "block";
   }
 });
+
+// Registro del service worker (PWA) también desde el login, para que usuarios
+// que nunca llegan al dashboard (primer acceso) igual puedan "instalar" la app.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js", { scope: "/" })
+      .catch((err) => console.warn("SW register fallo:", err));
+  });
+}

@@ -2064,6 +2064,15 @@ init().then(() => {
   if (!localStorage.getItem("tutorial_done")) tutorialStart();
 }).catch(e=>console.error("Error de inicio:",e));
 
+// Registro del service worker (PWA). Scope / para cubrir toda la app.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js", { scope: "/" })
+      .catch((err) => console.warn("SW register fallo:", err));
+  });
+}
+
 /* ── Tutorial interactivo ──────────────────────────────── */
 let _tutStep = 0;
 let _tutSteps = [];
