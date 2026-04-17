@@ -113,7 +113,7 @@
     <div class="view" id="view-turnos">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
         <div class="page-title" style="margin:0;border:none;padding:0">Lista de Turnos</div>
-        <button class="btn btn-outline" onclick="exportarTurnosCSV()">⬇ Exportar CSV</button>
+        <button class="btn btn-outline" id="btn-export-csv">⬇ Exportar CSV</button>
       </div>
       <div class="search-bar">
         <input type="date" id="filtro-fecha"/>
@@ -130,7 +130,7 @@
         <div class="page-title" style="margin:0;border:none;padding:0">Pacientes</div>
         <div style="display:flex;gap:.5rem;align-items:center">
           <span id="pacientes-count" style="font-size:.78rem;color:var(--muted)"></span>
-          <button class="btn btn-primary" title="Atajo: N (en Pacientes)" onclick="abrirNuevoPaciente()">+ Nuevo <kbd class="nav-kbd fab-kbd">N</kbd></button>
+          <button class="btn btn-primary" title="Atajo: N (en Pacientes)" id="btn-nuevo-paciente">+ Nuevo <kbd class="nav-kbd fab-kbd">N</kbd></button>
         </div>
       </div>
       <div class="search-bar">
@@ -162,7 +162,7 @@
     <div class="view" id="view-profesionales">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
         <div class="page-title" style="margin:0;border:none;padding:0">Profesionales</div>
-        <button class="btn btn-primary" title="Atajo: N (en Profesionales)" onclick="abrirNuevoMedico()">+ Nuevo Profesional <kbd class="nav-kbd fab-kbd">N</kbd></button>
+        <button class="btn btn-primary" title="Atajo: N (en Profesionales)" id="btn-nuevo-medico">+ Nuevo Profesional <kbd class="nav-kbd fab-kbd">N</kbd></button>
       </div>
       <div class="prof-grid" id="prof-grid">
         <div style="color:var(--muted);font-size:.85rem">Cargando...</div>
@@ -341,7 +341,7 @@
 </div>
 
 <!-- FAB solo visible en agenda -->
-<button id="btn-fab" class="btn btn-primary fab" style="display:none" title="Atajo: N (en Agenda)" onclick="abrirNuevoTurno()">+ Turno <kbd class="nav-kbd fab-kbd">N</kbd></button>
+<button id="btn-fab" class="btn btn-primary fab" style="display:none" title="Atajo: N (en Agenda)">+ Turno <kbd class="nav-kbd fab-kbd">N</kbd></button>
 <!-- MODAL: CAMBIAR CONTRASEÑA -->
 <div class="modal-overlay" id="modal-password">
   <div class="modal" style="max-width:380px">
@@ -423,8 +423,8 @@
     <div id="tutorial-title" style="font-size:1rem;font-weight:600;color:#333;margin-bottom:.5rem"></div>
     <div id="tutorial-desc" style="font-size:.85rem;color:#666;line-height:1.5;margin-bottom:1.2rem"></div>
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <button onclick="tutorialSkip()" style="background:none;border:none;font-size:.8rem;color:#999;cursor:pointer;font-family:inherit">Saltar</button>
-      <button id="tutorial-next-btn" onclick="tutorialNext()" style="background:#6B5B4F;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-size:.85rem;cursor:pointer;font-family:inherit;font-weight:500">Siguiente</button>
+      <button id="tutorial-skip-btn" style="background:none;border:none;font-size:.8rem;color:#999;cursor:pointer;font-family:inherit">Saltar</button>
+      <button id="tutorial-next-btn" style="background:#6B5B4F;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-size:.85rem;cursor:pointer;font-family:inherit;font-weight:500">Siguiente</button>
     </div>
   </div>
   <div id="tutorial-highlight" style="position:fixed;z-index:9999;border:3px solid #6B5B4F;border-radius:10px;pointer-events:none;transition:all .4s ease;box-shadow:0 0 0 4000px rgba(0,0,0,.45)"></div>
@@ -433,6 +433,6 @@
 <div id="toast-container"></div>
 <datalist id="datalist-financiadores"></datalist>
 <datalist id="datalist-planes"></datalist>
-<script src="/static/js/app.js?v=12"></script>
+<script src="/static/js/app.js?v=13"></script>
 </body>
 </html>

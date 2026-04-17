@@ -1243,6 +1243,9 @@ async function guardarPassword() {
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m){m.classList.remove("open"); clearFormErrors(m.id);}}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
+$("btn-export-csv")?.addEventListener("click", () => exportarTurnosCSV());
+$("btn-nuevo-paciente")?.addEventListener("click", () => abrirNuevoPaciente());
+$("btn-nuevo-medico")?.addEventListener("click", () => abrirNuevoMedico());
 
 /* ── Auditoría (admin) ─────────────────────────────────── */
 function _fmtAuditTs(iso) {
@@ -1463,3 +1466,6 @@ function _tutRender() {
     tooltip.style.transform = "translate(-50%,-50%)";
   }
 }
+
+$("tutorial-next-btn")?.addEventListener("click", () => tutorialNext());
+$("tutorial-skip-btn")?.addEventListener("click", () => tutorialSkip());
