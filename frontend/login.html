@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#FAF7F3"/>
   <title>MIO MEDIC — Iniciar sesion</title>
-  <script src="/static/js/theme.js?v=1"></script>
+  <script src="/static/js/theme.js?v=2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
   <style>
@@ -22,21 +22,8 @@
       --lg-error: #c0392b;
       color-scheme: light;
     }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) {
-        --lg-bg: #1A1614;
-        --lg-surface: #26211C;
-        --lg-text: #F0EAE0;
-        --lg-label: #C8BAA8;
-        --lg-muted: #9E9080;
-        --lg-border: #3A332C;
-        --lg-primary: #7A6857;
-        --lg-primary-hover: #8A7866;
-        --lg-shadow: 0 4px 20px rgba(0,0,0,.4);
-        --lg-error: #D88585;
-        color-scheme: dark;
-      }
-    }
+    /* Dark mode: solo si el usuario lo eligió (data-theme="dark").
+       No seguimos prefers-color-scheme; light es el default. */
     [data-theme="dark"] {
       --lg-bg: #1A1614;
       --lg-surface: #26211C;
