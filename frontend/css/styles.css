@@ -7,18 +7,26 @@
   --primary:    #9E8B7A;
   --primary-dk: #6B5A4A;
   --primary-lt: #C4B5A5;
+  --primary-hover: #5A4A3C;
   --accent:     #F5F1EC;
   --accent-dk:  #E8E0D6;
+  --accent-lt:  #FCFAF7;
+  --surface-hover: #FBF8F4;
   --success:    #6B8F71;
   --success-lt: #E8F0E9;
+  --success-dk: #4A7550;
   --warning:    #B8924A;
   --warning-lt: #F7EFDD;
+  --warning-dk: #8F6F30;
   --danger:     #A05555;
   --danger-lt:  #F5E6E6;
+  --danger-dk:  #7F3D3D;
   --info:       #5A9AC4;
   --info-lt:    #E8F0F7;
+  --info-dk:    #2A5F8A;
   --ausente:    #7A6B9A;
   --ausente-lt: #EEEBF5;
+  --ausente-dk: #564A73;
 
   --text:       #2B241E;
   --text-soft:  #58493E;
@@ -206,7 +214,7 @@ body {
 .main { margin-left: var(--sidebar-w); flex: 1; padding: var(--sp-2xl) 2.25rem; max-width: 100%; }
 .page-title {
   font-family: var(--font-display);
-  font-size: 1.35rem; font-weight: 300; letter-spacing: 1.5px;
+  font-size: 1.35rem; font-weight: 500; letter-spacing: 1.5px;
   color: var(--text); margin-bottom: 1.75rem;
   text-transform: none;
   padding-bottom: 0;
@@ -271,7 +279,7 @@ body {
 .stat-card.stat-danger::before  { background: var(--danger); }
 .stat-num {
   font-family: var(--font-display);
-  font-size: 2rem; font-weight: 300;
+  font-size: 2rem; font-weight: 500;
   color: var(--text); line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -326,10 +334,10 @@ body {
   transition: background .15s;
 }
 .time-slot:hover { background: var(--accent); }
-.time-slot.slot-exacta { background: #fcfaf7; }
+.time-slot.slot-exacta { background: var(--accent-lt); }
 .time-slot.slot-cubierto { cursor: default; pointer-events: none; }
 .time-slot.slot-cubierto:hover { background: transparent; }
-.time-slot.slot-cubierto.slot-exacta { background: #fcfaf7; }
+.time-slot.slot-cubierto.slot-exacta { background: var(--accent-lt); }
 .time-label {
   width: 54px; min-width: 54px;
   font-size: .68rem; color: var(--muted);
@@ -358,14 +366,13 @@ body {
 .turno-chip:hover {
   transform: translateX(1px);
   box-shadow: var(--shadow);
-  filter: brightness(1.02);
   z-index: 3;
 }
 .chip-pendiente  { background: var(--accent); color: var(--primary-dk); border-color: var(--primary-lt); }
-.chip-confirmado { background: var(--success-lt); color: #4a7550; border-color: var(--success); }
+.chip-confirmado { background: var(--success-lt); color: var(--success-dk); border-color: var(--success); }
 .chip-cancelado  { background: var(--danger-lt); color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
-.chip-ausente    { background: var(--ausente-lt); color: var(--ausente); border-color: var(--ausente); }
-.chip-realizado  { background: var(--info-lt); color: #2a5f8a; border-color: var(--info); }
+.chip-ausente    { background: var(--ausente-lt); color: var(--ausente-dk); border-color: var(--ausente); }
+.chip-realizado  { background: var(--info-lt); color: var(--info-dk); border-color: var(--info); }
 .chip-nombre { font-weight: 600; font-size: .76rem; }
 .chip-hc     { font-size: .66rem; color: inherit; opacity: .7; font-weight: 400; }
 .chip-esp    { font-size: .66rem; opacity: .72; font-weight: 400; }
@@ -380,12 +387,14 @@ body {
   font-family: var(--font);
   text-transform: none;
 }
-.btn:hover { filter: brightness(.96); transform: translateY(-1px); }
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-xs); }
 .btn:active { transform: translateY(0); }
 .btn-primary { background: var(--primary-dk); color: #fff; }
-.btn-primary:hover { background: #5a4a3c; }
+.btn-primary:hover { background: var(--primary-hover); }
 .btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: var(--success-dk); }
 .btn-danger  { background: var(--danger);  color: #fff; }
+.btn-danger:hover  { background: var(--danger-dk); }
 .btn-outline {
   background: var(--white); border: 1px solid var(--border);
   color: var(--text-soft);
@@ -458,7 +467,7 @@ td {
   vertical-align: middle;
   color: var(--text);
 }
-tr:hover td { background: #fbf8f4; }
+tr:hover td { background: var(--surface-hover); }
 .badge {
   display: inline-block; padding: var(--sp-xs) .7rem;
   border-radius: var(--pill-radius); font-size: .66rem;
@@ -466,10 +475,10 @@ tr:hover td { background: #fbf8f4; }
   text-transform: capitalize;
 }
 .badge-pendiente  { background: var(--accent); color: var(--primary-dk); }
-.badge-confirmado { background: var(--success-lt); color: #2d7a52; }
+.badge-confirmado { background: var(--success-lt); color: var(--success-dk); }
 .badge-cancelado  { background: var(--danger-lt); color: var(--danger); }
-.badge-ausente    { background: var(--ausente-lt); color: var(--ausente); }
-.badge-realizado  { background: var(--info-lt); color: #2a5f8a; }
+.badge-ausente    { background: var(--ausente-lt); color: var(--ausente-dk); }
+.badge-realizado  { background: var(--info-lt); color: var(--info-dk); }
 
 /* ── Search ─────────────────────────────────────────────────── */
 .search-bar {
@@ -877,7 +886,7 @@ tr:hover td { background: #fbf8f4; }
 .dash-turno-paciente { font-weight:500; font-size:.88rem; flex:1; min-width:140px; }
 .dash-turno-medico { font-size:.78rem; color:var(--muted); }
 .dash-turno-consultorio { font-size:.72rem; background:var(--accent); padding:.2rem var(--sp-sm); border-radius:4px; }
-.dash-turno-obs { width:100%; font-size:.78rem; color:#666; margin-top:.2rem; line-height:1.4; white-space:pre-wrap; }
+.dash-turno-obs { width:100%; font-size:.78rem; color:var(--text-soft); margin-top:.2rem; line-height:1.4; white-space:pre-wrap; }
 .dash-turno-info { font-size:.72rem; color:var(--muted); display:flex; gap:.6rem; flex-wrap:wrap; }
 .dash-turno-actions { margin-left:auto; }
 
