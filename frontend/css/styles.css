@@ -399,6 +399,11 @@ body {
 .time-slot.slot-cubierto { cursor: default; pointer-events: none; }
 .time-slot.slot-cubierto:hover { background: transparent; }
 .time-slot.slot-cubierto.slot-exacta { background: var(--accent-lt); }
+.time-slot.slot-bloqueado {
+  cursor: default; pointer-events: none;
+  background: repeating-linear-gradient(45deg, #e9e5df, #e9e5df 6px, #f1ede7 6px, #f1ede7 12px);
+}
+.time-slot.slot-bloqueado:hover { background: repeating-linear-gradient(45deg, #e9e5df, #e9e5df 6px, #f1ede7 6px, #f1ede7 12px); }
 .time-label {
   width: 54px; min-width: 54px;
   font-size: .68rem; color: var(--muted);
@@ -439,9 +444,16 @@ body {
 .chip-cancelado  { background: var(--danger-lt);  color: var(--danger-dk);  border-color: var(--danger); text-decoration: line-through; }
 .chip-ausente    { background: var(--ausente-lt); color: var(--ausente-dk); border-color: var(--ausente); }
 .chip-realizado  { background: var(--info-lt);    color: var(--info-dk);    border-color: var(--info); }
+.chip-bloqueado  {
+  background: repeating-linear-gradient(45deg, #d7d2cc, #d7d2cc 6px, #c8c2ba 6px, #c8c2ba 12px);
+  color: #3a342d; border-color: #8b8379;
+  z-index: 1;
+}
+.chip-bloqueado:hover { filter: brightness(0.95); }
 .chip-nombre { font-weight: 600; font-size: .78rem; line-height: 1.25; }
 .chip-hc     { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
 .chip-esp    { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
+.chip-obs    { font-size: .68rem; font-weight: 400; color: inherit; line-height: 1.2; opacity: .88; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Buttons ────────────────────────────────────────────────── */
 .btn {
@@ -568,6 +580,9 @@ tr:hover td { background: var(--surface-hover); }
   padding: 0; display: flex;
 }
 .horario-pill button:hover { color: var(--danger); }
+.horario-pill.bloqueo-pill {
+  background: #f4e7e6; border-color: #d9b4b0; color: #6a2b25;
+}
 
 /* ── Professional cards — REDISEÑADO ─────────────────────────── */
 .prof-grid {

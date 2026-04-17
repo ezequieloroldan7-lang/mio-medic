@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, time, timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -75,6 +75,31 @@ def crear_especialidad(
     return e
 
 
+@router.delete("/especialidades/{esp_id}", status_code=204)
+def eliminar_especialidad(
+    esp_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_staff),
+):
+    """Elimina una especialidad. Falla si hay profesionales con esa especialidad."""
+    esp = db.query(models.Especialidad).filter(models.Especialidad.id == esp_id).first()
+    if not esp:
+        raise HTTPException(404, "Especialidad no encontrada")
+    en_uso = db.query(models.Medico.id).filter(
+        models.Medico.especialidad_id == esp_id,
+    ).first()
+    if en_uso:
+        raise HTTPException(
+            400,
+            "No se puede eliminar: hay profesionales con esta especialidad. Reasignalos primero.",
+        )
+    audit(db, request, "especialidad.delete", user=user,
+          entity_type="especialidad", entity_id=esp.id,
+          details={"nombre": esp.nombre})
+    db.delete(esp); db.commit()
+
+
 # ── Médicos ───────────────────────────────────────────────
 def _get_medico(id: int, db: Session) -> models.Medico:
     m = db.query(models.Medico).options(
@@ -125,7 +150,7 @@ def crear_medico(
         u = models.User(
             username=username,
             password_hash=hash_password(temp_pw),
-            display_name=f"Dr/a. {m.nombre} {m.apellido}",
+            display_name=f"{m.nombre} {m.apellido}",
             role="medico",
             medico_id=m.id,
             must_change_password=True,
@@ -229,6 +254,13 @@ def disponibilidad(
         models.Turno.fecha_hora_inicio.between(ini_dia, fin_dia),
     ).all()
 
+    # Bloqueos del profesional que intersecten el día (aplican a cualquier consultorio)
+    bloqueos = db.query(models.BloqueoMedico).filter(
+        models.BloqueoMedico.medico_id == medico_id,
+        models.BloqueoMedico.fecha_inicio < fin_dia,
+        models.BloqueoMedico.fecha_fin    > ini_dia,
+    ).all()
+
     slots = []
     for h in horarios_dia:
         hi_h, hi_m = map(int, h.hora_inicio.split(":"))
@@ -245,6 +277,11 @@ def disponibilidad(
                    t.fecha_hora_inicio < actual + delta and t_fin > actual:
                     ocupado = True
                     break
+            if not ocupado:
+                for b in bloqueos:
+                    if b.fecha_inicio < actual + delta and b.fecha_fin > actual:
+                        ocupado = True
+                        break
             if not ocupado:
                 slots.append({
                     "fecha_hora_inicio": actual.isoformat(),
@@ -323,7 +360,7 @@ def calendario_ical(
           .all()
     )
 
-    cal_name = f"Turnos - Dr/a. {m.apellido}"
+    cal_name = f"Turnos - {m.apellido}"
     esp = m.especialidad.nombre if m.especialidad else ""
     lines = [
         "BEGIN:VCALENDAR",
@@ -417,3 +454,83 @@ def eliminar_horario(horario_id: int, db: Session = Depends(get_db)):
     if not h:
         raise HTTPException(404, "Horario no encontrado")
     db.delete(h); db.commit()
+
+
+# ── Bloqueos (profesional no disponible) ──────────────────
+@router.get("/medicos/{medico_id}/bloqueos", response_model=List[schemas.BloqueoOut])
+def listar_bloqueos(
+    medico_id: int,
+    desde: Optional[date] = Query(None),
+    hasta: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+):
+    q = db.query(models.BloqueoMedico).filter(models.BloqueoMedico.medico_id == medico_id)
+    if desde:
+        q = q.filter(models.BloqueoMedico.fecha_fin > datetime.combine(desde, time.min))
+    if hasta:
+        q = q.filter(models.BloqueoMedico.fecha_inicio < datetime.combine(hasta, time.max))
+    return q.order_by(models.BloqueoMedico.fecha_inicio).all()
+
+
+@router.get("/bloqueos", response_model=List[schemas.BloqueoOut])
+def listar_bloqueos_fecha(
+    fecha: date = Query(..., description="Fecha a consultar"),
+    db: Session = Depends(get_db),
+):
+    """Bloqueos de todos los profesionales que intersecten `fecha`. Usado por la agenda diaria."""
+    ini = datetime.combine(fecha, time.min)
+    fin = datetime.combine(fecha, time.max)
+    return db.query(models.BloqueoMedico).filter(
+        models.BloqueoMedico.fecha_inicio < fin,
+        models.BloqueoMedico.fecha_fin    > ini,
+    ).order_by(models.BloqueoMedico.fecha_inicio).all()
+
+
+@router.post("/medicos/{medico_id}/bloqueos", response_model=schemas.BloqueoOut, status_code=201)
+def crear_bloqueo(
+    medico_id: int,
+    data: schemas.BloqueoCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
+    if not m:
+        raise HTTPException(404, "Médico no encontrado")
+    if data.fecha_fin <= data.fecha_inicio:
+        raise HTTPException(400, "La fecha/hora de fin debe ser posterior a la de inicio.")
+    b = models.BloqueoMedico(
+        medico_id=medico_id,
+        fecha_inicio=data.fecha_inicio,
+        fecha_fin=data.fecha_fin,
+        motivo=(data.motivo or None),
+        creado_por=user.id,
+    )
+    db.add(b); db.flush()
+    audit(db, request, "bloqueo.create", user=user,
+          entity_type="bloqueo", entity_id=b.id,
+          details={"medico_id": medico_id,
+                   "desde": data.fecha_inicio.isoformat(),
+                   "hasta": data.fecha_fin.isoformat(),
+                   "motivo": b.motivo})
+    db.commit(); db.refresh(b)
+    return b
+
+
+@router.delete("/bloqueos/{bloqueo_id}", status_code=204)
+def eliminar_bloqueo(
+    bloqueo_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    b = db.query(models.BloqueoMedico).filter(models.BloqueoMedico.id == bloqueo_id).first()
+    if not b:
+        raise HTTPException(404, "Bloqueo no encontrado")
+    audit(db, request, "bloqueo.delete", user=user,
+          entity_type="bloqueo", entity_id=b.id,
+          details={"medico_id": b.medico_id,
+                   "desde": b.fecha_inicio.isoformat(),
+                   "hasta": b.fecha_fin.isoformat(),
+                   "motivo": b.motivo})
+    db.delete(b); db.commit()

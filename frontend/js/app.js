@@ -414,12 +414,16 @@ document.addEventListener("click", (e) => {
     case "editar-medico":        abrirEditarMedico(id); break;
     case "eliminar-medico":      eliminarMedico(id); break;
     case "eliminar-horario":     eliminarHorario(id); break;
+    case "bloquear-medico":      abrirNuevoBloqueo(id); break;
+    case "eliminar-bloqueo":     eliminarBloqueo(id); break;
+    case "eliminar-especialidad":eliminarEspecialidad(id); break;
   }
 });
 $("btn-save-turno")?.addEventListener("click", () => guardarTurno());
 $("btn-save-paciente")?.addEventListener("click", () => guardarPaciente());
 $("btn-save-medico")?.addEventListener("click", () => guardarMedico());
 $("btn-save-horario")?.addEventListener("click", () => guardarHorario());
+$("btn-save-bloqueo")?.addEventListener("click", () => guardarBloqueo());
 $("btn-nueva-especialidad")?.addEventListener("click", () => abrirNuevaEspecialidad());
 $("btn-save-especialidad")?.addEventListener("click", () => guardarEspecialidad());
 $("btn-save-password")?.addEventListener("click", () => guardarPassword());
@@ -600,11 +604,17 @@ async function renderAgenda() {
   $("agenda-fecha").value=fecha;
   sessionStorage.setItem("f_agenda_fecha", fecha);
   $("agenda-titulo").textContent=fmtFecha(fecha+"T12:00:00");
-  const turnos_raw=await api(`/turnos?fecha=${fecha}`);
+  const [turnos_raw, bloqueos_raw] = await Promise.all([
+    api(`/turnos?fecha=${fecha}`),
+    api(`/bloqueos?fecha=${fecha}`).catch(() => []),
+  ]);
   const turnos=_filtrarPorRol(turnos_raw);
   const activos=turnos.filter(t=>t.estado!=="cancelado");
-  renderColumna(1,activos.filter(t=>t.consultorio===1),fecha);
-  renderColumna(2,activos.filter(t=>t.consultorio===2),fecha);
+  const bloqueos = _isMedico
+    ? bloqueos_raw.filter(b => b.medico_id === currentUser.medico_id)
+    : bloqueos_raw;
+  renderColumna(1,activos.filter(t=>t.consultorio===1),fecha,bloqueos);
+  renderColumna(2,activos.filter(t=>t.consultorio===2),fecha,bloqueos);
 }
 
 const SLOT_MIN = 30;  // minutos por slot
@@ -627,7 +637,29 @@ function _slotIndexDeHora(hora) {
   return Math.round((h * 60 + m - base) / SLOT_MIN);
 }
 
-function renderColumna(consultorio, turnos, fecha) {
+function _bloqueoTramoEnFecha(b, fecha) {
+  // Devuelve {idxIni, spans} del rango del bloqueo que cae en `fecha` (YYYY-MM-DD),
+  // clampeado a la grilla 09:00–20:00. Null si no hay intersección visible.
+  const dayStart = new Date(fecha + "T00:00:00");
+  const dayEnd   = new Date(fecha + "T23:59:59");
+  const bIni = new Date(b.fecha_inicio);
+  const bFin = new Date(b.fecha_fin);
+  if (bFin <= dayStart || bIni > dayEnd) return null;
+  const clampIni = bIni < dayStart ? new Date(fecha + "T09:00:00") : bIni;
+  const clampFin = bFin > dayEnd   ? new Date(fecha + "T20:00:00") : bFin;
+  const minutesIni = clampIni.getHours() * 60 + clampIni.getMinutes();
+  const minutesFin = clampFin.getHours() * 60 + clampFin.getMinutes();
+  const gridStart = 9 * 60;
+  const gridEnd   = 19 * 60 + 30 + SLOT_MIN;
+  const ini = Math.max(minutesIni, gridStart);
+  const fin = Math.min(minutesFin, gridEnd);
+  if (fin <= ini) return null;
+  const idxIni = Math.floor((ini - gridStart) / SLOT_MIN);
+  const spans  = Math.max(1, Math.ceil((fin - ini) / SLOT_MIN));
+  return { idxIni, spans };
+}
+
+function renderColumna(consultorio, turnos, fecha, bloqueos = []) {
   const grid = $(`grid-c${consultorio}`);
   grid.innerHTML = "";
   const horas = horasDisponibles();
@@ -645,19 +677,46 @@ function renderColumna(consultorio, turnos, fecha) {
     for (let i = idx + 1; i < Math.min(total, idx + spans); i++) cubiertos.add(i);
   }
 
+  // Índice de slots bloqueados (se aplica a cualquier consultorio del profesional)
+  const bloqueados = new Set();
+  const bloqueosVisibles = [];
+  for (const b of bloqueoSinDuplicar(bloqueos)) {
+    const tramo = _bloqueoTramoEnFecha(b, fecha);
+    if (!tramo) continue;
+    bloqueosVisibles.push({ b, ...tramo });
+    for (let i = tramo.idxIni; i < Math.min(total, tramo.idxIni + tramo.spans); i++) {
+      bloqueados.add(i);
+    }
+  }
+
   // Render de los slots (siempre todos, para mantener la grilla horaria)
   horas.forEach((hora, i) => {
     const esExacta = hora.endsWith(":00");
     const slot = document.createElement("div");
     slot.className = "time-slot"
       + (esExacta ? " slot-exacta" : "")
-      + (cubiertos.has(i) ? " slot-cubierto" : "");
+      + (cubiertos.has(i) ? " slot-cubierto" : "")
+      + (bloqueados.has(i) ? " slot-bloqueado" : "");
     slot.innerHTML = `<span class="time-label${esExacta ? " exacta" : ""}">${hora}</span><span class="time-content"></span>`;
-    if (!turnosPorSlot.has(i) && !cubiertos.has(i)) {
+    if (!turnosPorSlot.has(i) && !cubiertos.has(i) && !bloqueados.has(i)) {
       slot.addEventListener("click", () => abrirNuevoTurno(consultorio, `${fecha}T${hora}`));
     }
     grid.appendChild(slot);
   });
+
+  // Chip overlay por cada bloqueo visible (debajo de los turnos en z-order)
+  for (const { b, idxIni, spans } of bloqueosVisibles) {
+    const chip = document.createElement("div");
+    chip.className = "turno-chip chip-bloqueado";
+    chip.style.top = `calc(${idxIni} * var(--slot-h) + 3px)`;
+    chip.style.height = `calc(${spans} * var(--slot-h) - 6px)`;
+    const motivo = b.motivo ? ` · ${esc(b.motivo)}` : "";
+    chip.innerHTML = `<span class="chip-nombre">BLOQUEADO${motivo}</span>
+      <span class="chip-hc">${esc(_fmtRangoBloqueo(b))}</span>`;
+    chip.title = "Profesional no disponible en este rango. Click para eliminar.";
+    chip.addEventListener("click", e => { e.stopPropagation(); eliminarBloqueo(b.id); });
+    grid.appendChild(chip);
+  }
 
   // Render de los chips como overlays absolutos encima de la grilla
   for (const [idx, { t, spans }] of turnosPorSlot) {
@@ -671,9 +730,19 @@ function renderColumna(consultorio, turnos, fecha) {
   }
 }
 
+function bloqueoSinDuplicar(arr) {
+  // Un mismo bloqueo aparece idéntico en ambos consultorios; deduplicamos por id.
+  const seen = new Set();
+  return arr.filter(b => {
+    if (seen.has(b.id)) return false;
+    seen.add(b.id);
+    return true;
+  });
+}
+
 function chipInnerHTML(t) {
   const hc   = t.paciente?.nro_hc ? `HC ${esc(t.paciente.nro_hc)}` : "";
-  const prof = `Dr/a. ${esc(t.medico?.apellido || "")}`;
+  const prof = esc(t.medico?.apellido || "");
   const esp  = esc(t.medico?.especialidad?.nombre || "");
   const hIni = fmtHora(t.fecha_hora_inicio);
   const hFin = (() => {
@@ -681,11 +750,14 @@ function chipInnerHTML(t) {
     d.setMinutes(d.getMinutes() + (t.duracion_minutos || 0));
     return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
   })();
-  const obsIcon = t.observaciones ? ` <span title="${esc(t.observaciones)}" style="opacity:.8">📝</span>` : "";
+  const obs = t.observaciones
+    ? `<span class="chip-obs" title="${esc(t.observaciones)}">📝 ${esc(t.observaciones)}</span>`
+    : "";
   return `
-    <span class="chip-nombre">${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}${obsIcon}</span>
+    <span class="chip-nombre">${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}</span>
     <span class="chip-hc">${hc}${hc ? " · " : ""}${hIni}–${hFin}</span>
-    <span class="chip-esp">${prof} · ${esp}</span>`;
+    <span class="chip-esp">${prof}${prof && esp ? " · " : ""}${esp}</span>
+    ${obs}`;
 }
 
 $("agenda-fecha").addEventListener("change",renderAgenda);
@@ -872,15 +944,28 @@ $("buscar-paciente").addEventListener("input", e => renderPacientes(e.target.val
 async function renderProfesionales() {
   try {
     const hoy = new Date().toISOString().slice(0,10);
-    const [meds, turnosHoy] = await Promise.all([
+    const [meds, turnosHoy, bloqueosAll] = await Promise.all([
       api("/medicos"),
       api(`/turnos?fecha=${hoy}`).catch(() => []),
+      api(`/bloqueos?fecha=${hoy}`).catch(() => []),
     ]);
     medicos = meds;
     const turnosPorMedico = {};
     turnosHoy.filter(t => t.estado !== "cancelado").forEach(t => {
       turnosPorMedico[t.medico_id] = (turnosPorMedico[t.medico_id] || 0) + 1;
     });
+
+    // Próximos bloqueos (hasta 30 días) por médico, en paralelo
+    const limiteFin = new Date(); limiteFin.setDate(limiteFin.getDate() + 30);
+    const hastaISO = limiteFin.toISOString().slice(0,10);
+    const bloqueosPorMedico = {};
+    await Promise.all(medicos.map(async m => {
+      try {
+        bloqueosPorMedico[m.id] = await api(
+          `/medicos/${m.id}/bloqueos?desde=${hoy}&hasta=${hastaISO}`
+        );
+      } catch { bloqueosPorMedico[m.id] = []; }
+    }));
 
     const grid = $("prof-grid");
     if (!medicos.length) {
@@ -914,14 +999,30 @@ async function renderProfesionales() {
             <div class="prof-section-label">Horarios de atención</div>
             <div class="horario-list">${renderHorariosPills(m.horarios || [], m.id)}</div>
           </div>
+          <div class="prof-section">
+            <div class="prof-section-label">Bloqueos próximos</div>
+            <div class="horario-list">${renderBloqueosPills(bloqueosPorMedico[m.id] || [])}</div>
+          </div>
           <div class="prof-actions">
             <button class="btn btn-sm btn-outline" data-action="agregar-horario" data-id="${m.id}">+ Horario</button>
+            <button class="btn btn-sm btn-outline" data-action="bloquear-medico" data-id="${m.id}">+ Bloquear</button>
             <button class="btn btn-sm btn-outline" data-action="editar-medico" data-id="${m.id}">Editar</button>
             <button class="btn btn-sm btn-danger" data-action="eliminar-medico" data-id="${m.id}">Eliminar</button>
           </div>
         </div>`;
     }).join("");
   } catch (e) { toast("Error al cargar profesionales: " + e.message, "error"); }
+}
+
+function renderBloqueosPills(bloqueos) {
+  if (!bloqueos || !bloqueos.length) {
+    return `<span style="font-size:.75rem;color:var(--muted);font-style:italic">Sin bloqueos próximos</span>`;
+  }
+  return bloqueos.map(b => {
+    const motivo = b.motivo ? ` · ${esc(b.motivo)}` : "";
+    return `<span class="horario-pill bloqueo-pill" title="${esc(b.motivo || "Bloqueo")}">${esc(_fmtRangoBloqueo(b))}${motivo}
+      <button data-action="eliminar-bloqueo" data-id="${b.id}" title="Eliminar bloqueo" aria-label="Eliminar bloqueo">×</button></span>`;
+  }).join("");
 }
 
 function renderHorariosPills(horarios, medicoId) {
@@ -979,12 +1080,28 @@ async function guardarMedico() {
   });
 }
 
-/* ── Modal Nueva Especialidad ─────────────────────────────
- * Abierto desde el modal de Profesional. Al guardar, refresca la lista
- * global y deja la nueva seleccionada en #med-especialidad.
+/* ── Modal Especialidades (alta + listado + borrado) ────────
+ * Abierto desde el modal de Profesional y también desde la vista de
+ * profesionales. Permite agregar nuevas especialidades y eliminar las que
+ * no están en uso. Al agregar, deja la nueva seleccionada en #med-especialidad
+ * si el modal de profesional está abierto.
  */
+function _renderEspList() {
+  const ul = $("esp-list"); if (!ul) return;
+  if (!especialidades.length) {
+    ul.innerHTML = `<li style="font-size:.8rem;color:var(--muted);font-style:italic;padding:.4rem 0">Sin especialidades</li>`;
+    return;
+  }
+  ul.innerHTML = especialidades.slice()
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+    .map(e => `<li class="esp-item" style="display:flex;justify-content:space-between;align-items:center;padding:.35rem .15rem;border-bottom:1px solid #eee">
+        <span>${esc(e.nombre)}</span>
+        <button class="btn btn-sm btn-danger" data-action="eliminar-especialidad" data-id="${e.id}" title="Eliminar especialidad" aria-label="Eliminar ${esc(e.nombre)}">×</button>
+      </li>`).join("");
+}
 function abrirNuevaEspecialidad() {
   $("esp-nombre").value = "";
+  _renderEspList();
   $("modal-especialidad").classList.add("open");
   setTimeout(() => $("esp-nombre").focus(), 50);
 }
@@ -995,14 +1112,27 @@ async function guardarEspecialidad() {
     try {
       const nueva = await api("/especialidades", { method: "POST", body: JSON.stringify({ nombre }) });
       toast("Especialidad guardada ✓", "success");
-      cerrarModal("modal-especialidad");
       especialidades = await api("/especialidades");
       populateSelects();
+      _renderEspList();
+      $("esp-nombre").value = "";
       // Dejar seleccionada la nueva en el modal de profesional si está abierto
       const sel = $("med-especialidad");
       if (sel) sel.value = nueva.id;
     } catch (e) { toast(e.message, "error"); }
   });
+}
+async function eliminarEspecialidad(id) {
+  const esp = especialidades.find(x => x.id === id);
+  if (!esp) return;
+  if (!confirm(`¿Eliminar la especialidad "${esp.nombre}"?`)) return;
+  try {
+    await api(`/especialidades/${id}`, { method: "DELETE" });
+    toast("Especialidad eliminada ✓", "success");
+    especialidades = await api("/especialidades");
+    populateSelects();
+    _renderEspList();
+  } catch (e) { toast(e.message, "error"); }
 }
 async function eliminarMedico(id) {
   if(!confirm("¿Eliminar este profesional y todos sus datos asociados (turnos, usuario)?"))return;
@@ -1031,6 +1161,80 @@ async function eliminarHorario(horarioId) {
   if(!confirm("¿Eliminar este horario?"))return;
   try{await api(`/horarios/${horarioId}`,{method:"DELETE"});toast("Horario eliminado","success");medicos=await api("/medicos");renderProfesionales();}
   catch(e){toast(e.message,"error");}
+}
+
+/* ── Modal Bloqueo ───────────────────────────────────────── */
+function _isoLocal(d) {
+  // d: Date → "YYYY-MM-DDTHH:MM" en hora local
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function abrirNuevoBloqueo(medicoId) {
+  const sel = $("bloq-medico");
+  if (sel) {
+    sel.innerHTML = `<option value="">Seleccioná profesional</option>` +
+      medicos.map(m => `<option value="${m.id}">${esc(m.nombre)} ${esc(m.apellido)}</option>`).join("");
+    sel.value = medicoId ? String(medicoId) : "";
+  }
+  // Default: mañana 09:00 → mañana 19:30
+  const start = new Date();
+  start.setDate(start.getDate() + 1);
+  start.setHours(9, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(19, 30, 0, 0);
+  $("bloq-inicio").value = _isoLocal(start);
+  $("bloq-fin").value    = _isoLocal(end);
+  $("bloq-motivo").value = "";
+  $("modal-bloqueo").classList.add("open");
+}
+async function guardarBloqueo() {
+  const medicoId = parseInt($("bloq-medico").value);
+  const inicio = $("bloq-inicio").value;
+  const fin    = $("bloq-fin").value;
+  const motivo = $("bloq-motivo").value.trim() || null;
+  if (!medicoId) { toast("Seleccioná un profesional.", "error"); return; }
+  if (!inicio || !fin) { toast("Completá las fechas de inicio y fin.", "error"); return; }
+  if (fin <= inicio) { toast("La fecha/hora de fin debe ser posterior al inicio.", "error"); return; }
+  await _withSubmitLock("modal-bloqueo", async () => {
+    try {
+      await api(`/medicos/${medicoId}/bloqueos`, {
+        method: "POST",
+        body: JSON.stringify({ fecha_inicio: inicio + ":00", fecha_fin: fin + ":00", motivo }),
+      });
+      toast("Bloqueo guardado ✓", "success");
+      cerrarModal("modal-bloqueo");
+      if (document.getElementById("view-profesionales")?.classList.contains("active")) {
+        renderProfesionales();
+      }
+      if (document.getElementById("view-agenda")?.classList.contains("active")) {
+        renderAgenda();
+      }
+    } catch (e) { toast(e.message, "error"); }
+  });
+}
+async function eliminarBloqueo(id) {
+  if (!confirm("¿Eliminar este bloqueo?")) return;
+  try {
+    await api(`/bloqueos/${id}`, { method: "DELETE" });
+    toast("Bloqueo eliminado ✓", "success");
+    if (document.getElementById("view-profesionales")?.classList.contains("active")) {
+      renderProfesionales();
+    }
+    if (document.getElementById("view-agenda")?.classList.contains("active")) {
+      renderAgenda();
+    }
+  } catch (e) { toast(e.message, "error"); }
+}
+function _fmtRangoBloqueo(b) {
+  const ini = new Date(b.fecha_inicio);
+  const fin = new Date(b.fecha_fin);
+  const pad = n => String(n).padStart(2, "0");
+  const sameDay = ini.toDateString() === fin.toDateString();
+  const fecha = d => `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
+  const hora  = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return sameDay
+    ? `${fecha(ini)} ${hora(ini)}–${hora(fin)}`
+    : `${fecha(ini)} ${hora(ini)} → ${fecha(fin)} ${hora(fin)}`;
 }
 
 /* ── Agregar paciente desde turno ───────────────────────── */
@@ -1063,9 +1267,10 @@ async function mostrarCamposPacienteNuevo() {
 async function agregarPacienteDesdeTurno() {
   const nombre_completo = $("turno-paciente-input").value.trim();
   if (!nombre_completo) { toast("Escribi el nombre del paciente","error"); return; }
-  const dni = $("turno-new-dni").value.trim();
   const tel = $("turno-new-tel").value.trim();
-  if (!dni || !tel) { toast("DNI y Telefono son obligatorios para pacientes nuevos","error"); return; }
+  const email = $("turno-new-email").value.trim();
+  const dni = $("turno-new-dni").value.trim();
+  if (!tel || !email) { toast("Teléfono y Email son obligatorios para pacientes nuevos","error"); return; }
   const partes = nombre_completo.toUpperCase().split(/\s+/);
   const apellido = partes[0] || "";
   const nombre = partes.slice(1).join(" ") || "";
@@ -1073,7 +1278,14 @@ async function agregarPacienteDesdeTurno() {
   const plan = $("turno-plan").value.trim().toUpperCase() || null;
   const nro_hc = $("turno-new-hc").value.trim() || null;
   try {
-    const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({nombre:nombre||apellido,apellido,dni,telefono:tel,nro_hc,financiador,plan})});
+    const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({
+      nombre: nombre || apellido,
+      apellido,
+      dni: dni || null,
+      telefono: tel,
+      email: email.toLowerCase(),
+      nro_hc, financiador, plan,
+    })});
     pacientes.push(nuevo);
     $("turno-paciente-id").value = nuevo.id;
     $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
@@ -1082,8 +1294,13 @@ async function agregarPacienteDesdeTurno() {
     // Mostrar info
     const infoEl = $("turno-pac-info");
     if (infoEl) {
-      infoEl.innerHTML = `HC: <span>${esc(nuevo.nro_hc)}</span> &nbsp;|&nbsp; DNI: <span>${esc(nuevo.dni)}</span> &nbsp;|&nbsp; Tel: <span>${esc(nuevo.telefono)}</span>`;
-      infoEl.style.display = "flex";
+      const parts = [];
+      if (nuevo.nro_hc)   parts.push(`HC: <span>${esc(nuevo.nro_hc)}</span>`);
+      if (nuevo.dni)      parts.push(`DNI: <span>${esc(nuevo.dni)}</span>`);
+      if (nuevo.telefono) parts.push(`Tel: <span>${esc(nuevo.telefono)}</span>`);
+      if (nuevo.email)    parts.push(`Email: <span>${esc(nuevo.email)}</span>`);
+      infoEl.innerHTML = parts.join(" &nbsp;|&nbsp; ");
+      infoEl.style.display = parts.length ? "flex" : "none";
     }
     toast("Paciente agregado a la base de datos","success");
   } catch(e) { toast(e.message,"error"); }
@@ -1103,6 +1320,7 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
   if($("turno-new-dni")) $("turno-new-dni").value="";
   if($("turno-new-tel")) $("turno-new-tel").value="";
+  if($("turno-new-email")) $("turno-new-email").value="";
   if($("turno-new-hc")) $("turno-new-hc").value="";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   // Preseleccionar medico si es profesional
@@ -1122,6 +1340,7 @@ async function abrirEditarTurno(id) {
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
   if($("turno-new-dni")) $("turno-new-dni").value="";
   if($("turno-new-tel")) $("turno-new-tel").value="";
+  if($("turno-new-email")) $("turno-new-email").value="";
   if($("turno-new-hc")) $("turno-new-hc").value="";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   // Mostrar info del paciente
@@ -1132,6 +1351,7 @@ async function abrirEditarTurno(id) {
     if(p.nro_hc)parts.push(`HC: <span>${esc(p.nro_hc)}</span>`);
     if(p.dni)parts.push(`DNI: <span>${esc(p.dni)}</span>`);
     if(p.telefono)parts.push(`Tel: <span>${esc(p.telefono)}</span>`);
+    if(p.email)parts.push(`Email: <span>${esc(p.email)}</span>`);
     infoEl.innerHTML=parts.join(" &nbsp;|&nbsp; ");
     infoEl.style.display=parts.length?"flex":"none";
   }
@@ -1218,7 +1438,7 @@ async function eliminarTurno(id) {
   catch(e){ toast("No se pudo cargar el turno: "+e.message,"error"); return; }
   const paciente = `${t.paciente?.apellido||""} ${t.paciente?.nombre||""}`.trim() || "paciente desconocido";
   const fechaHora = `${fmtFechaCorta(t.fecha_hora_inicio)} a las ${fmtHoraDisplay(t.fecha_hora_inicio)} hs`;
-  const medico = t.medico ? `Dr/a. ${t.medico.nombre} ${t.medico.apellido}` : "";
+  const medico = t.medico ? `${t.medico.nombre} ${t.medico.apellido}` : "";
   const msg = `¿Eliminar el turno de ${paciente}\n${fechaHora}${medico?` — ${medico}`:""}?\n\nEsta acción no se puede deshacer.`;
   if(!confirm(msg))return;
   try{

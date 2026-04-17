@@ -79,7 +79,7 @@ def tarea_whatsapp():
             if not p or not p.telefono:
                 continue
             nombre   = f"{p.nombre} {p.apellido}"
-            medico   = f"Dr/a. {t.medico.nombre} {t.medico.apellido}"
+            medico   = f"{t.medico.nombre} {t.medico.apellido}"
             esp      = t.medico.especialidad.nombre if t.medico.especialidad else ""
             fecha_hr = t.fecha_hora_inicio.strftime("%d/%m/%Y a las %H:%M hs")
             if enviar_confirmacion(nombre, p.telefono, fecha_hr, medico, esp):
@@ -436,7 +436,7 @@ def _seed_admin_user():
             u = models.User(
                 username=username,
                 password_hash=hash_password(pw),
-                display_name=f"Dr/a. {m.nombre} {m.apellido}",
+                display_name=f"{m.nombre} {m.apellido}",
                 role="medico",
                 medico_id=m.id,
                 must_change_password=True,

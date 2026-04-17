@@ -52,6 +52,7 @@ class Medico(Base):
     especialidad    = relationship("Especialidad", back_populates="medicos")
     turnos          = relationship("Turno", back_populates="medico")
     horarios        = relationship("HorarioMedico", back_populates="medico", cascade="all, delete-orphan")
+    bloqueos        = relationship("BloqueoMedico", back_populates="medico", cascade="all, delete-orphan")
 
 
 class HorarioMedico(Base):
@@ -63,6 +64,26 @@ class HorarioMedico(Base):
     hora_fin     = Column(String, nullable=False)    # "13:00"
     consultorio  = Column(Integer, default=1)
     medico       = relationship("Medico", back_populates="horarios")
+
+
+class BloqueoMedico(Base):
+    """
+    Rango de indisponibilidad de un profesional (licencia, ausencia, congreso).
+    Aplica a cualquier consultorio del profesional durante [fecha_inicio, fecha_fin).
+    """
+    __tablename__ = "bloqueos_medico"
+    id           = Column(Integer, primary_key=True, index=True)
+    medico_id    = Column(Integer, ForeignKey("medicos.id"), nullable=False, index=True)
+    fecha_inicio = Column(DateTime, nullable=False, index=True)
+    fecha_fin    = Column(DateTime, nullable=False)
+    motivo       = Column(String)
+    creado_por   = Column(Integer, ForeignKey("users.id"))
+    creado_en    = Column(DateTime, nullable=False, default=datetime.utcnow)
+    medico       = relationship("Medico", back_populates="bloqueos")
+
+    __table_args__ = (
+        Index("ix_bloqueos_medico_fecha", "medico_id", "fecha_inicio"),
+    )
 
 
 class Turno(Base):

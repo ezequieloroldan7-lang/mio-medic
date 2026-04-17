@@ -46,6 +46,20 @@ class MedicoOut(MedicoBase):
     horarios: List[HorarioOut] = []
     class Config: from_attributes = True
 
+# ── Bloqueo ──────────────────────────────────────────────────
+class BloqueoCreate(BaseModel):
+    fecha_inicio: datetime
+    fecha_fin:    datetime
+    motivo:       Optional[str] = None
+
+class BloqueoOut(BaseModel):
+    id:           int
+    medico_id:    int
+    fecha_inicio: datetime
+    fecha_fin:    datetime
+    motivo:       Optional[str] = None
+    class Config: from_attributes = True
+
 # ── Turno ─────────────────────────────────────────────────────
 class TurnoBase(BaseModel):
     paciente_id: int; medico_id: int; consultorio: int

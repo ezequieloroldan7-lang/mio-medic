@@ -100,6 +100,17 @@ def _hay_solapamiento(db: Session, consultorio: int, inicio: datetime,
     return False
 
 
+def _bloqueo_que_intersecta(db: Session, medico_id: int, inicio: datetime,
+                            duracion: int) -> Optional[models.BloqueoMedico]:
+    """Si el profesional tiene un bloqueo que intersecte el rango, lo devuelve."""
+    fin = inicio + timedelta(minutes=duracion)
+    return db.query(models.BloqueoMedico).filter(
+        models.BloqueoMedico.medico_id == medico_id,
+        models.BloqueoMedico.fecha_inicio <  fin,
+        models.BloqueoMedico.fecha_fin    >  inicio,
+    ).first()
+
+
 def _normalizar_duracion(d: int) -> int:
     if d not in DURACIONES_VALIDAS:
         raise HTTPException(400, f"Duración inválida. Valores aceptados: {DURACIONES_VALIDAS}")
@@ -350,6 +361,11 @@ def crear_turno(
     if _hay_solapamiento(db, data.consultorio, data.fecha_hora_inicio, data.duracion_minutos):
         raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
+    bloqueo = _bloqueo_que_intersecta(db, data.medico_id, data.fecha_hora_inicio, data.duracion_minutos)
+    if bloqueo:
+        motivo = f" (motivo: {bloqueo.motivo})" if bloqueo.motivo else ""
+        raise HTTPException(409, f"El profesional tiene un bloqueo en ese horario{motivo}.")
+
     t = models.Turno(**data.model_dump())
     db.add(t); db.flush()
     audit(db, request, "turno.create", user=user,
@@ -373,7 +389,7 @@ def crear_turno(
     # WhatsApp al paciente
     if p and p.telefono:
         nombre   = f"{p.nombre} {p.apellido}"
-        medico_n = f"Dr/a. {m.nombre} {m.apellido}" if m else ""
+        medico_n = f"{m.nombre} {m.apellido}" if m else ""
         esp      = m.especialidad.nombre if m and m.especialidad else ""
         fecha_hr = t.fecha_hora_inicio.strftime("%d/%m/%Y a las %H:%M hs")
         _bg_pool.submit(
@@ -411,6 +427,8 @@ def actualizar_turno(
     nueva_duracion    = payload.get("duracion_minutos",  t.duracion_minutos)
     nuevo_estado      = payload.get("estado", t.estado)
 
+    nuevo_medico = payload.get("medico_id", t.medico_id)
+
     if "consultorio" in payload or "fecha_hora_inicio" in payload or "duracion_minutos" in payload:
         _validar_horario(nueva_fecha)
         _normalizar_consultorio(nuevo_consultorio)
@@ -419,6 +437,15 @@ def actualizar_turno(
             db, nuevo_consultorio, nueva_fecha, nueva_duracion, turno_id=turno_id
         ):
             raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
+
+    if (
+        nuevo_estado != models.EstadoTurno.cancelado
+        and ("fecha_hora_inicio" in payload or "duracion_minutos" in payload or "medico_id" in payload)
+    ):
+        bloqueo = _bloqueo_que_intersecta(db, nuevo_medico, nueva_fecha, nueva_duracion)
+        if bloqueo:
+            motivo = f" (motivo: {bloqueo.motivo})" if bloqueo.motivo else ""
+            raise HTTPException(409, f"El profesional tiene un bloqueo en ese horario{motivo}.")
 
     for k, v in payload.items():
         setattr(t, k, v)
