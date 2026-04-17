@@ -16,6 +16,9 @@ class PacienteOut(PacienteBase):
     class Config: from_attributes = True
 
 # ── Especialidad ─────────────────────────────────────────────
+class EspecialidadCreate(BaseModel):
+    nombre: str
+
 class EspecialidadOut(BaseModel):
     id: int; nombre: str
     class Config: from_attributes = True

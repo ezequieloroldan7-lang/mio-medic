@@ -292,7 +292,10 @@
         <div class="form-group"><label for="med-apellido">Apellido <span aria-hidden="true">*</span></label><input type="text" id="med-apellido" placeholder="Ej: Garrido" aria-required="true"/></div>
         <div class="form-group">
           <label for="med-especialidad">Especialidad <span aria-hidden="true">*</span></label>
-          <select id="med-especialidad" class="sel-especialidad" aria-required="true"></select>
+          <div style="display:flex;gap:.5rem;align-items:stretch">
+            <select id="med-especialidad" class="sel-especialidad" aria-required="true" style="flex:1"></select>
+            <button type="button" class="btn btn-outline" id="btn-nueva-especialidad" title="Agregar nueva especialidad" aria-label="Agregar nueva especialidad">+ Nueva</button>
+          </div>
         </div>
         <div class="form-group"><label for="med-matricula">Matrícula</label><input type="text" id="med-matricula" placeholder="MP 12345"/></div>
         <div class="form-group"><label for="med-telefono">Teléfono</label><input type="tel" id="med-telefono" placeholder="+54 11 ..."/></div>
@@ -303,6 +306,26 @@
     <div class="modal-footer">
       <button class="btn btn-outline" data-close-modal="modal-medico">Cancelar</button>
       <button class="btn btn-primary" id="btn-save-medico">Guardar profesional</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVA ESPECIALIDAD -->
+<div class="modal-overlay" id="modal-especialidad" role="dialog" aria-modal="true" aria-labelledby="modal-especialidad-titulo" aria-hidden="true">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-especialidad-titulo">Nueva Especialidad</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-especialidad">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="esp-nombre">Nombre <span aria-hidden="true">*</span></label>
+        <input type="text" id="esp-nombre" placeholder="Ej: Oncología" aria-required="true" maxlength="60"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close-modal="modal-especialidad">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-especialidad">Guardar especialidad</button>
     </div>
   </div>
 </div>
@@ -437,6 +460,6 @@
 <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
 <datalist id="datalist-financiadores"></datalist>
 <datalist id="datalist-planes"></datalist>
-<script src="/static/js/app.js?v=16"></script>
+<script src="/static/js/app.js?v=18"></script>
 </body>
 </html>
