@@ -1411,9 +1411,22 @@ function _validarHorarioMedico(medicoId, fechaHora, consultorio) {
 
 async function guardarTurno() {
   clearFormErrors("modal-turno");
-  const pacienteId=parseInt($("turno-paciente-id").value), medicoId=parseInt($("turno-medico").value);
+  let pacienteId=parseInt($("turno-paciente-id").value);
+  const medicoId=parseInt($("turno-medico").value);
   let ok = true;
-  if (!pacienteId) { markFieldError("turno-paciente-input", "Seleccioná un paciente de la lista"); ok = false; }
+  // Si no hay paciente seleccionado, exigir Nombre + Apellido + Tel + Email
+  // para poder crearlo automáticamente abajo. La secretaria ya no necesita
+  // apretar "+ Agregar paciente" antes — se resuelve al guardar el turno.
+  if (!pacienteId) {
+    const n = ($("turno-new-nombre")?.value||"").trim();
+    const a = ($("turno-new-apellido")?.value||"").trim();
+    const t = ($("turno-new-tel")?.value||"").trim();
+    const e = ($("turno-new-email")?.value||"").trim();
+    if (!n) { markFieldError("turno-new-nombre", "Nombre obligatorio"); ok = false; }
+    if (!a) { markFieldError("turno-new-apellido", "Apellido obligatorio"); ok = false; }
+    if (!t) { markFieldError("turno-new-tel", "Teléfono obligatorio"); ok = false; }
+    if (!e) { markFieldError("turno-new-email", "Email obligatorio"); ok = false; }
+  }
   if (!medicoId)   { markFieldError("turno-medico", "Seleccioná un profesional"); ok = false; }
   if (!$("turno-fecha-hora").value) { markFieldError("turno-fecha-hora", "Indicá fecha y hora"); ok = false; }
   if (!ok) { toast("Completá los campos obligatorios.","error"); return; }
@@ -1424,13 +1437,34 @@ async function guardarTurno() {
 
   await _withSubmitLock("modal-turno", async () => {
     try{
-      // Actualizar financiador/plan del paciente si cambiaron
       const fin=$("turno-financiador").value.trim().toUpperCase()||null;
       const plan=$("turno-plan").value.trim().toUpperCase()||null;
-      const pac=pacientes.find(p=>p.id===pacienteId);
-      if(pac && (fin!==pac.financiador || plan!==pac.plan)){
-        await api(`/pacientes/${pacienteId}`,{method:"PUT",body:JSON.stringify({...pac,financiador:fin,plan:plan})});
-        pac.financiador=fin; pac.plan=plan;
+      // Si el paciente no existe todavía, crearlo al vuelo con los datos del form.
+      if (!pacienteId) {
+        let nro_hc = ($("turno-new-hc")?.value||"").trim() || null;
+        if (!nro_hc) {
+          try { const r = await api("/pacientes/next-hc"); nro_hc = r.next_hc; } catch(_) {}
+        }
+        const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({
+          nombre: $("turno-new-nombre").value.trim().toUpperCase(),
+          apellido: $("turno-new-apellido").value.trim().toUpperCase(),
+          telefono: $("turno-new-tel").value.trim(),
+          email: ($("turno-new-email").value||"").trim().toLowerCase() || null,
+          dni: ($("turno-new-dni")?.value||"").trim() || null,
+          deriva: ($("turno-new-deriva")?.value||"").trim().toUpperCase() || null,
+          nro_hc, financiador: fin, plan,
+        })});
+        pacientes.push(nuevo);
+        pacienteId = nuevo.id;
+        $("turno-paciente-id").value = nuevo.id;
+        $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
+      } else {
+        // Paciente existente: actualizar financiador/plan si cambiaron.
+        const pac=pacientes.find(p=>p.id===pacienteId);
+        if(pac && (fin!==pac.financiador || plan!==pac.plan)){
+          await api(`/pacientes/${pacienteId}`,{method:"PUT",body:JSON.stringify({...pac,financiador:fin,plan:plan})});
+          pac.financiador=fin; pac.plan=plan;
+        }
       }
       const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),observaciones:$("turno-obs").value||null};
       if(turnoEditing){
