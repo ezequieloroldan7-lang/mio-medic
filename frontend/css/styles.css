@@ -382,6 +382,8 @@ body {
 }
 .cal-col-wrap:nth-child(1) .cal-col-header { background: #6B5B4F; }
 .cal-col-wrap:nth-child(2) .cal-col-header { background: #8B7355; }
+.cal-col-wrap:nth-child(1) .turno-chip { border-left-color: #6B5B4F; background: #f8f4f0; }
+.cal-col-wrap:nth-child(2) .turno-chip { border-left-color: #8B7355; background: #faf6f0; }
 
 /* Grid de slots de 15 min: altura fija por slot + contenedor relativo
    para que los chips de turno se posicionen en overlay absoluto. */
@@ -889,13 +891,21 @@ tr:hover td { background: var(--surface-hover); }
   .stat-lbl { font-size: .58rem; letter-spacing: 1px; }
 
   /* Agenda */
-  .cal-cols { grid-template-columns: 1fr; }
-  .cal-toolbar { padding: .6rem .7rem; gap: .4rem; }
+  .cal-cols { grid-template-columns: 1fr; touch-action: pan-y; }
+  .cal-toolbar { padding: .6rem .7rem; gap: .4rem; flex-wrap: wrap; }
   .cal-toolbar input[type=date] { font-size: .78rem; padding: .4rem var(--sp-sm); }
-  .cal-fecha-titulo { font-size: .78rem; }
+  .cal-fecha-titulo { font-size: .78rem; width: 100%; text-align: center; margin-top: .3rem; }
   :root { --slot-h: 40px; }
   .turno-chip { left: 50px; right: 4px; padding: .3rem var(--sp-sm); font-size: .7rem; }
   .time-label { width: 46px; min-width: 46px; font-size: .62rem; padding: .3rem .35rem; }
+
+  /* Tarjetas de turnos/pacientes mobile */
+  .dash-turno-card { padding: 1rem; flex-wrap: wrap; gap: .5rem; }
+  .dash-turno-hora { font-size: .95rem; }
+  .dash-turno-paciente { font-size: .92rem; width: 100%; }
+  .dash-turno-actions { width: 100%; display: flex; gap: .4rem; margin-top: .3rem; }
+  .dash-turno-actions .btn { flex: 1; text-align: center; min-height: 40px; }
+  .dash-turno-info { width: 100%; }
 
   /* Tables */
   table { font-size: .78rem; }
@@ -1043,6 +1053,16 @@ tr:hover td { background: var(--surface-hover); }
 .pac-table .pac-actions-td .btn { margin-left:.25rem; }
 
 /* Patient info row in turno modal */
+.pac-card {
+  background:#fff; border:1.5px solid var(--border); border-radius:var(--radius);
+  padding:.85rem 1rem; display:flex; flex-direction:column; gap:.4rem;
+  transition:border-color .15s;
+}
+.pac-card:hover { border-color:var(--primary-lt); }
+.pac-card-nombre { font-weight:600; font-size:.9rem; }
+.pac-card-btns { display:flex; gap:.3rem; }
+.pac-card .dash-turno-info { margin:0; }
+
 .turno-pac-info {
   display:flex; gap:.8rem; flex-wrap:wrap; font-size:.78rem; color:var(--muted);
   padding:var(--sp-sm) var(--sp-md); background:var(--accent); border-radius:6px; margin-top:.3rem;

@@ -502,7 +502,9 @@ async function init() {
     });
   }
 
-  [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  const [m, e, p] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
+  if (!m || !e || !p) return;
+  medicos = m; especialidades = e; pacientes = p;
   populateSelects();
 
   // Si es medico, preseleccionar su profesional en el filtro
@@ -572,6 +574,7 @@ function _filtrarPorRol(turnos) {
 async function renderDashboard() {
   try {
     const todos_raw = await api(`/turnos?fecha=${new Date().toISOString().slice(0,10)}`);
+    if (!todos_raw) return;
     const todos = _filtrarPorRol(todos_raw);
 
     const cnt = (estado) => todos.filter(t => t.estado === estado).length;
@@ -617,6 +620,7 @@ async function renderAgenda() {
     api(`/turnos?fecha=${fecha}`),
     api(`/bloqueos?fecha=${fecha}`).catch(() => []),
   ]);
+  if(!turnos_raw)return;
   const turnos=_filtrarPorRol(turnos_raw);
   const activos=turnos.filter(t=>t.estado!=="cancelado");
   // La agenda mezcla turnos de todos los profesionales en la misma grilla, así
@@ -879,6 +883,7 @@ async function renderTurnos(q) {
   if (q === undefined) q = $("filtro-buscar-turno")?.value || "";
   const fecha=$("filtro-fecha")?.value||"";
   const turnos_raw=await api("/turnos?"+(fecha?`fecha=${fecha}&`:""));
+  if(!turnos_raw)return;
   const turnos=_filtrarPorRol(turnos_raw);
   const filtrados=q?turnos.filter(t=>`${t.paciente?.apellido} ${t.paciente?.nombre}`.toLowerCase().includes(q.toLowerCase())):turnos;
   const orden=$("filtro-orden-turnos")?.value||"fecha_desc";
@@ -1573,6 +1578,19 @@ async function guardarTurno() {
   if (!$("turno-fecha-hora").value) { markFieldError("turno-fecha-hora", "Indicá fecha y hora"); ok = false; }
   if (!ok) { toast("Completá los campos obligatorios.","error"); return; }
 
+  // Validar turno duplicado (mismo paciente mismo día)
+  if (!turnoEditing) {
+    const fechaTurno = $("turno-fecha-hora").value.slice(0, 10);
+    try {
+      const turnosDelDia = await api(`/turnos?fecha=${fechaTurno}`);
+      const duplicado = turnosDelDia.find(t => t.paciente_id === pacienteId && t.estado !== "cancelado");
+      if (duplicado) {
+        const hora = fmtHoraDisplay(duplicado.fecha_hora_inicio);
+        if (!confirm(`Este paciente ya tiene un turno el ${fechaTurno} a las ${hora}.\n\n¿Agendar otro turno de todas formas?`)) return;
+      }
+    } catch(e) { /* continuar si falla la validación */ }
+  }
+
   // Validar franja horaria del profesional
   const alertaHorario = _validarHorarioMedico(medicoId, $("turno-fecha-hora").value, parseInt($("turno-consultorio").value));
   if (alertaHorario && !confirm(alertaHorario + "\n\n¿Agendar de todas formas?")) return;
@@ -1614,11 +1632,29 @@ async function guardarTurno() {
       if(turnoEditing){
         await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
         toast("Turno actualizado ✓","success");
+        cerrarModal("modal-turno");
       }else{
-        await api("/turnos",{method:"POST",body:JSON.stringify(body)});
+        const turnoNuevo = await api("/turnos",{method:"POST",body:JSON.stringify(body)});
         toast("Turno creado ✓","success");
+        cerrarModal("modal-turno");
+        // Mostrar resumen del turno creado
+        const p = turnoNuevo?.paciente;
+        const m = turnoNuevo?.medico;
+        const resumen = $("turno-creado-resumen");
+        if (turnoNuevo && resumen) {
+          resumen.innerHTML = `
+            <div><strong>Paciente:</strong> ${esc(p?.nombre)} ${esc(p?.apellido)}</div>
+            ${p?.telefono ? `<div><strong>WhatsApp:</strong> ${esc(p.telefono)}</div>` : ""}
+            <div><strong>Profesional:</strong> ${esc(m?.nombre)} ${esc(m?.apellido)} — ${esc(m?.especialidad?.nombre||"")}</div>
+            <div><strong>Fecha:</strong> ${fmtFecha(turnoNuevo.fecha_hora_inicio)}</div>
+            <div><strong>Hora:</strong> ${fmtHoraDisplay(turnoNuevo.fecha_hora_inicio)} — Consultorio ${turnoNuevo.consultorio}</div>
+            <div><strong>Duración:</strong> ${turnoNuevo.duracion_minutos} minutos</div>
+            ${turnoNuevo.observaciones ? `<div><strong>Obs:</strong> ${esc(turnoNuevo.observaciones)}</div>` : ""}
+          `;
+          $("modal-turno-creado").classList.add("open");
+        }
       }
-      cerrarModal("modal-turno"); renderAgenda(); renderDashboard();
+      renderAgenda(); renderDashboard();
     }catch(e){toast(e.message,"error");}
   });
 }
@@ -2061,7 +2097,7 @@ async function desactivar2FA() {
 }
 
 init().then(() => {
-  if (!localStorage.getItem("tutorial_done")) tutorialStart();
+  if (!localStorage.getItem("tutorial_done_v3")) tutorialStart();
 }).catch(e=>console.error("Error de inicio:",e));
 
 // Registro del service worker (PWA). Scope / para cubrir toda la app.
@@ -2078,28 +2114,43 @@ let _tutStep = 0;
 let _tutSteps = [];
 
 function _tutStepsAdmin() {
-  return [
-    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar las principales funciones del sistema de turnos. Hace click en Siguiente para continuar.", target: ".header-logo" },
-    { title: "Dashboard", desc: "Aca ves un resumen de los turnos de hoy: cuantos hay, pendientes, confirmados, realizados y ausentes/cancelados.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
-    { title: "Agenda", desc: "La agenda muestra los turnos del dia en formato de grilla por consultorio. Podes hacer click en un horario libre para agendar un turno nuevo.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
-    { title: "Turnos", desc: "Aca ves la lista completa de turnos con todos los datos del paciente. Podes filtrar por fecha y buscar por nombre.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
-    { title: "Pacientes", desc: "Gestion de pacientes: buscar, agregar, editar o eliminar. Desde aca tambien podes agendar un turno rapido para un paciente.", target: '[data-view="view-pacientes"]', action: ()=>navTo("view-pacientes") },
-    { title: "Profesionales", desc: "Administra los profesionales del consultorio, sus horarios de atencion y la integracion con Google Calendar.", target: '[data-view="view-profesionales"]', action: ()=>navTo("view-profesionales") },
-    { title: "Google Calendar", desc: "Para sincronizar turnos con Google Calendar: 1) Edita el profesional y completa el campo Email Google Calendar con el mail del calendario. 2) En Google Calendar, compartilo con el email de la cuenta de servicio como editor. Los turnos se sincronizan automaticamente.", target: '[data-view="view-profesionales"]' },
-    { title: "Nuevo Turno", desc: "Para agendar un turno nuevo, usa el boton + Turno en la agenda o el boton Turno en la ficha del paciente. Si el paciente no existe, podes crearlo en el momento.", target: "#btn-fab", action: ()=>navTo("view-agenda") },
-    { title: "Cambiar contraseña", desc: "Cada usuario puede cambiar su contraseña haciendo click en el boton Clave en la esquina superior derecha.", target: "#user-display" },
-    { title: "Listo!", desc: "Ya conoces las funciones principales. Si tenes dudas, explora cada seccion. Este tutorial no se va a volver a mostrar.", target: ".header-logo" },
+  const esAdmin = currentUser && currentUser.role === "admin";
+  const pasos = [
+    { title: "Bienvenido a MIO MEDIC", desc: "Te mostramos el sistema de turnos en pocos minutos. Dale Siguiente para arrancar. Tambien podes cerrar con Saltar.", target: ".header-logo" },
+    { title: "Navegacion rapida", desc: "Desde el costado izquierdo llegas a Dashboard, Agenda, Turnos, Pacientes, Profesionales y Auditoria. En PC podes usar las teclas 1 a 6 como atajo, y la tecla N para abrir un formulario nuevo segun donde estes.", target: ".sidebar" },
+    { title: "Dashboard", desc: "Resumen del dia: turnos totales, realizados, confirmados, pendientes y ausentes/cancelados. Las tarjetas se tintan segun el estado. Debajo aparecen los turnos de hoy con HC, DNI y acciones rapidas.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
+    { title: "Agenda", desc: "Grilla del dia por consultorio, con color propio por sala. Hace click en un horario libre para agendar. En mobile desliza a izquierda o derecha para cambiar de dia.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
+    { title: "Reagendar con drag", desc: "Tocas un turno y lo arrastras verticalmente para moverlo de horario sin abrir el formulario. Cada chip tiene Editar, Cancelar y Eliminar para accion rapida.", target: '[data-view="view-agenda"]' },
+    { title: "Bloqueo de horarios", desc: "Desde Profesionales podes bloquear franjas (vacaciones, reuniones, etc). Los bloqueos se muestran en la agenda y el backend impide agendar encima.", target: '[data-view="view-agenda"]' },
+    { title: "Nuevo Turno", desc: "El boton + Turno flotante (o la tecla N) abre el formulario. El paciente puede buscarse por nombre o HC. Si no existe, completas los datos en el mismo modal y se crea automaticamente al guardar.", target: "#btn-fab" },
+    { title: "Alertas al guardar", desc: "El sistema avisa si el paciente ya tiene turno ese dia, si hay otro paciente con mismo DNI/HC, o si el profesional no atiende en esa franja. Al terminar ves un resumen con WhatsApp, fecha, hora y consultorio.", target: "#btn-fab" },
+    { title: "Lista de Turnos", desc: "Filtra por fecha o busca por paciente, y elegi el orden. Cada turno tiene Editar, Cancelar y Eliminar. Con Exportar Excel descargas una planilla XLSX de un rango de fechas.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
+    { title: "Pacientes", desc: "Tabla con Nombre, HC, DNI, Telefono, Email, Financiador/Plan y Deriva. Ordena por cualquier columna y usa Turno para agendar rapido. Si buscas un paciente que no existe, aparece un boton para crearlo con ese nombre.", target: '[data-view="view-pacientes"]', action: ()=>navTo("view-pacientes") },
+    { title: "Profesionales", desc: "Alta, edicion y baja (con borrado en cascada de turnos y horarios). Cada profesional define sus franjas de atencion por dia y consultorio, y sus bloqueos puntuales.", target: '[data-view="view-profesionales"]', action: ()=>navTo("view-profesionales") },
+    { title: "Google Calendar", desc: "En la ficha del profesional completa Email Google Calendar y despues en Google Calendar compartilo como editor con la cuenta de servicio. Los turnos se sincronizan solos.", target: '[data-view="view-profesionales"]' },
   ];
+  if (esAdmin) pasos.push(
+    { title: "Auditoria", desc: "Solo admin. Ves el registro de quien creo, edito o elimino turnos, pacientes y profesionales. Podes filtrar por usuario, accion o entidad.", target: '[data-view="view-audit"]', action: ()=>navTo("view-audit") },
+  );
+  pasos.push(
+    { title: "Tema, 2FA y sesion", desc: "Arriba a la derecha (o en el menu ☰ en mobile) tenes: cambio de tema claro/oscuro, activacion de 2FA, cambio de Clave y Salir. Como admin tambien podes resetear claves de otros usuarios.", target: "#user-display" },
+    { title: "Instalar como app", desc: "La app es una PWA: desde el navegador podes instalarla en celular o PC para usarla como una aplicacion nativa, con acceso directo y modo pantalla completa.", target: ".header-logo" },
+    { title: "Listo!", desc: "Eso es todo. Explora cada seccion con calma. Este tutorial no vuelve a aparecer solo, pero podes reabrirlo borrando tutorial_done_v3 desde el navegador.", target: ".header-logo" },
+  );
+  return pasos;
 }
 
 function _tutStepsMedico() {
   return [
-    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar tu panel profesional. Solo ves tus propios turnos agendados.", target: ".header-logo" },
-    { title: "Tus turnos de hoy", desc: "El dashboard muestra un resumen de tus turnos de hoy con contadores de estado.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
-    { title: "Tu agenda", desc: "La agenda muestra tus turnos en formato de grilla por consultorio y horario.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
-    { title: "Lista de turnos", desc: "Aca podes ver, editar o cancelar tus turnos. Filtra por fecha o busca por nombre de paciente.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
-    { title: "Cambiar contraseña", desc: "Podes cambiar tu contraseña en cualquier momento desde el boton Clave arriba a la derecha.", target: "#user-display" },
-    { title: "Listo!", desc: "Ya conoces tu panel. Si tenes dudas, explora cada seccion.", target: ".header-logo" },
+    { title: "Bienvenido a MIO MEDIC", desc: "Este es tu panel profesional: solo ves tus propios turnos. Dale Siguiente para arrancar.", target: ".header-logo" },
+    { title: "Navegacion", desc: "Desde el costado llegas a Dashboard, Agenda y Turnos. En PC podes usar las teclas 1, 2 o 3 como atajo.", target: ".sidebar" },
+    { title: "Tu dashboard", desc: "Resumen del dia con contadores tintados por estado (realizados, confirmados, pendientes, ausentes/cancelados) y la lista de tus turnos de hoy con HC y DNI.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
+    { title: "Tu agenda", desc: "Grilla por consultorio, cada uno con su color. En mobile desliza a izquierda o derecha para cambiar de dia. Podes arrastrar un turno verticalmente para moverlo de horario.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
+    { title: "Bloqueos", desc: "Tus bloqueos (vacaciones, reuniones) aparecen sobre la grilla y evitan que se agenden turnos encima. Los gestiona el admin desde Profesionales.", target: '[data-view="view-agenda"]' },
+    { title: "Lista de tus turnos", desc: "Filtra por fecha, busca por paciente y elegi el orden. Cada turno tiene Editar, Cancelar y Eliminar. Con Exportar Excel descargas un XLSX de un rango.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
+    { title: "Tema, 2FA y sesion", desc: "Arriba a la derecha (o en el menu ☰ en mobile) cambias tema claro/oscuro, activas 2FA, cambias tu Clave o cerras sesion con Salir.", target: "#user-display" },
+    { title: "Instalar como app", desc: "La app es una PWA: podes instalarla en el celular o la PC para usarla como una app nativa con acceso directo.", target: ".header-logo" },
+    { title: "Listo!", desc: "Ya conoces tu panel. Este tutorial no vuelve a aparecer solo. Cualquier duda, explora cada seccion tranqui.", target: ".header-logo" },
   ];
 }
 
@@ -2118,7 +2169,7 @@ function tutorialNext() {
 
 function tutorialSkip() {
   $("tutorial-overlay").style.display = "none";
-  localStorage.setItem("tutorial_done", "1");
+  localStorage.setItem("tutorial_done_v3", "1");
   navTo("view-dashboard");
 }
 

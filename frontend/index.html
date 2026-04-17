@@ -16,7 +16,7 @@
   <script src="/static/js/theme.js?v=2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/css/styles.css?v=14"/>
+  <link rel="stylesheet" href="/static/css/styles.css?v=20"/>
 </head>
 <body>
 
@@ -469,6 +469,21 @@
 
 <!-- FAB solo visible en agenda -->
 <button id="btn-fab" class="btn btn-primary fab" style="display:none" title="Atajo: N (en Agenda)">+ Turno <kbd class="nav-kbd fab-kbd">N</kbd></button>
+<!-- MODAL: TURNO CREADO -->
+<div class="modal-overlay" id="modal-turno-creado" role="dialog" aria-modal="true" aria-labelledby="modal-turno-creado-titulo" aria-hidden="true">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header" style="background:var(--success-lt);border-color:var(--success)">
+      <span class="modal-title" id="modal-turno-creado-titulo" style="color:var(--success)">Turno agendado</span>
+      <button class="modal-close" onclick="cerrarModal('modal-turno-creado')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="turno-creado-resumen" style="font-size:.88rem;line-height:1.8"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-turno-creado')">Cerrar</button>
+    </div>
+  </div>
+</div>
 <!-- MODAL: CAMBIAR CONTRASEÑA -->
 <div class="modal-overlay" id="modal-password" role="dialog" aria-modal="true" aria-labelledby="modal-password-titulo" aria-hidden="true">
   <div class="modal" style="max-width:380px">
@@ -560,6 +575,6 @@
 <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
 <datalist id="datalist-financiadores"></datalist>
 <datalist id="datalist-planes"></datalist>
-<script src="/static/js/app.js?v=19"></script>
+<script src="/static/js/app.js?v=20"></script>
 </body>
 </html>
