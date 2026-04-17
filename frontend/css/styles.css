@@ -74,12 +74,7 @@ body {
 }
 .header-logo {
   width: 46px; height: 46px;
-  background-image: url("/static/img/logo.png");
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: contain;
-  /* Ocultar el texto "mio" pero dejarlo como fallback accesible */
-  text-indent: -9999px; overflow: hidden; white-space: nowrap;
+  object-fit: contain;
   flex-shrink: 0;
 }
 .header-divider { width: 1px; height: 28px; background: var(--border); }
@@ -148,19 +143,35 @@ body {
   font-weight: 500;
 }
 .sidebar nav { padding: 0 .6rem; }
+.nav-list { list-style: none; margin: 0; padding: 0; }
 .nav-item {
   display: flex; align-items: center; gap: var(--sp-md);
+  width: 100%;
   padding: .65rem .9rem;
   cursor: pointer;
   font-size: .83rem; font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
   color: var(--text-soft);
   border-radius: var(--radius-sm);
   margin-bottom: 2px;
   transition: all .15s;
 }
 .nav-item:hover  { background: var(--accent); color: var(--text); }
+.nav-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 .nav-item.active { background: var(--primary-dk); color: #fff; font-weight: 600; }
 .nav-item.active .nav-icon { opacity: 1; }
+.nav-item-readonly {
+  cursor: default;
+  font-size: .78rem;
+  color: var(--muted);
+  pointer-events: none;
+}
 .nav-icon { font-size: .9rem; width: 18px; text-align: center; opacity: .75; }
 .nav-divider { height: 1px; background: var(--border); margin: var(--sp-sm) .9rem; }
 .nav-kbd {
@@ -618,6 +629,7 @@ tr:hover td { background: #fbf8f4; }
   border-bottom: 1px solid var(--border-lt);
 }
 .modal-title {
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 500; font-size: 1rem;
   color: var(--text); letter-spacing: .3px;

@@ -29,11 +29,8 @@
     .login-logo {
       width: 120px; height: 120px;
       margin: 0 auto .25rem;
-      background-image: url("/static/img/logo.png");
-      background-repeat: no-repeat;
-      background-position: center center;
-      background-size: contain;
-      text-indent: -9999px; overflow: hidden; white-space: nowrap;
+      object-fit: contain;
+      display: block;
     }
     .login-subtitle {
       font-size: .7rem;
@@ -94,7 +91,7 @@
 </head>
 <body>
   <div class="login-card">
-    <div class="login-logo" role="img" aria-label="MIO MEDIC">MIO</div>
+    <img class="login-logo" src="/static/img/logo.png" alt="MIO MEDIC" width="120" height="120"/>
     <div class="login-subtitle">Medicina Integral Oncologica & Estetica</div>
     <form id="login-form">
       <div class="form-group">

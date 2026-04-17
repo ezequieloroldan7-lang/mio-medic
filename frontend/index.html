@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="theme-color" content="#FAF7F3"/>
@@ -15,8 +15,8 @@
 
 <!-- HEADER -->
 <header class="header">
-  <button class="menu-toggle" id="menu-toggle">☰</button>
-  <div class="header-logo" role="img" aria-label="MIO MEDIC">mio</div>
+  <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">☰</button>
+  <img class="header-logo" src="/static/img/logo.png" alt="MIO MEDIC" width="46" height="46"/>
   <div class="header-divider"></div>
   <div class="header-sub">Medicina Integral<br>Oncológica &amp; Estética</div>
   <div class="header-spacer"></div>
@@ -34,20 +34,22 @@
 
 <div class="layout">
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">Sistema de Turnos</div>
-    <nav>
-      <div class="nav-item active" data-view="view-dashboard" title="Atajo: 1"><span class="nav-icon">◈</span> Dashboard <kbd class="nav-kbd">1</kbd></div>
-      <div class="nav-item" data-view="view-agenda" title="Atajo: 2"><span class="nav-icon">◷</span> Agenda <kbd class="nav-kbd">2</kbd></div>
-      <div class="nav-item" data-view="view-turnos" title="Atajo: 3"><span class="nav-icon">≡</span> Turnos <kbd class="nav-kbd">3</kbd></div>
-      <div class="nav-divider"></div>
-      <div class="nav-item" data-view="view-pacientes" title="Atajo: 4"><span class="nav-icon">◎</span> Pacientes <kbd class="nav-kbd">4</kbd></div>
-      <div class="nav-item" data-view="view-profesionales" title="Atajo: 5"><span class="nav-icon">✦</span> Profesionales <kbd class="nav-kbd">5</kbd></div>
-      <div class="nav-item admin-only" data-view="view-audit" title="Atajo: 6"><span class="nav-icon">⎙</span> Auditoría <kbd class="nav-kbd">6</kbd></div>
-      <div class="nav-divider sidebar-user-mobile"></div>
-      <div class="nav-item sidebar-user-mobile" id="sidebar-user-name" style="font-size:.78rem;color:#A89888;pointer-events:none;"></div>
-      <div class="nav-item sidebar-user-mobile" id="sidebar-password"><span class="nav-icon">◐</span> Cambiar clave</div>
-      <div class="nav-item sidebar-user-mobile" id="sidebar-logout"><span class="nav-icon">↗</span> Cerrar sesion</div>
+    <nav aria-label="Navegación principal">
+      <ul class="nav-list" role="list">
+        <li><button type="button" class="nav-item active" data-view="view-dashboard" aria-current="page" title="Atajo: 1"><span class="nav-icon" aria-hidden="true">◈</span> Dashboard <kbd class="nav-kbd" aria-hidden="true">1</kbd></button></li>
+        <li><button type="button" class="nav-item" data-view="view-agenda" title="Atajo: 2"><span class="nav-icon" aria-hidden="true">◷</span> Agenda <kbd class="nav-kbd" aria-hidden="true">2</kbd></button></li>
+        <li><button type="button" class="nav-item" data-view="view-turnos" title="Atajo: 3"><span class="nav-icon" aria-hidden="true">≡</span> Turnos <kbd class="nav-kbd" aria-hidden="true">3</kbd></button></li>
+        <li role="separator" class="nav-divider"></li>
+        <li><button type="button" class="nav-item" data-view="view-pacientes" title="Atajo: 4"><span class="nav-icon" aria-hidden="true">◎</span> Pacientes <kbd class="nav-kbd" aria-hidden="true">4</kbd></button></li>
+        <li><button type="button" class="nav-item" data-view="view-profesionales" title="Atajo: 5"><span class="nav-icon" aria-hidden="true">✦</span> Profesionales <kbd class="nav-kbd" aria-hidden="true">5</kbd></button></li>
+        <li class="admin-only"><button type="button" class="nav-item" data-view="view-audit" title="Atajo: 6"><span class="nav-icon" aria-hidden="true">⎙</span> Auditoría <kbd class="nav-kbd" aria-hidden="true">6</kbd></button></li>
+        <li role="separator" class="nav-divider sidebar-user-mobile"></li>
+        <li class="sidebar-user-mobile"><span class="nav-item nav-item-readonly" id="sidebar-user-name"></span></li>
+        <li class="sidebar-user-mobile"><button type="button" class="nav-item" id="sidebar-password"><span class="nav-icon" aria-hidden="true">◐</span> Cambiar clave</button></li>
+        <li class="sidebar-user-mobile"><button type="button" class="nav-item" id="sidebar-logout"><span class="nav-icon" aria-hidden="true">↗</span> Cerrar sesión</button></li>
+      </ul>
     </nav>
   </aside>
 
@@ -173,11 +175,11 @@
 </div>
 
 <!-- MODAL: NUEVO/EDITAR TURNO -->
-<div class="modal-overlay" id="modal-turno">
+<div class="modal-overlay" id="modal-turno" role="dialog" aria-modal="true" aria-labelledby="modal-turno-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modal-turno-titulo">Nuevo Turno</span>
-      <button class="modal-close" data-close-modal="modal-turno">✕</button>
+      <h2 class="modal-title" id="modal-turno-titulo">Nuevo Turno</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-turno">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -249,11 +251,11 @@
 </div>
 
 <!-- MODAL: NUEVO/EDITAR PACIENTE -->
-<div class="modal-overlay" id="modal-paciente">
+<div class="modal-overlay" id="modal-paciente" role="dialog" aria-modal="true" aria-labelledby="modal-paciente-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modal-paciente-titulo">Nuevo Paciente</span>
-      <button class="modal-close" data-close-modal="modal-paciente">✕</button>
+      <h2 class="modal-title" id="modal-paciente-titulo">Nuevo Paciente</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-paciente">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -276,11 +278,11 @@
 </div>
 
 <!-- MODAL: NUEVO/EDITAR PROFESIONAL -->
-<div class="modal-overlay" id="modal-medico">
+<div class="modal-overlay" id="modal-medico" role="dialog" aria-modal="true" aria-labelledby="modal-medico-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modal-medico-titulo">Nuevo Profesional</span>
-      <button class="modal-close" data-close-modal="modal-medico">✕</button>
+      <h2 class="modal-title" id="modal-medico-titulo">Nuevo Profesional</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-medico">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -304,11 +306,11 @@
 </div>
 
 <!-- MODAL: AGREGAR HORARIO -->
-<div class="modal-overlay" id="modal-horario">
+<div class="modal-overlay" id="modal-horario" role="dialog" aria-modal="true" aria-labelledby="modal-horario-titulo" aria-hidden="true">
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
-      <span class="modal-title" id="modal-horario-titulo">Agregar Horario</span>
-      <button class="modal-close" data-close-modal="modal-horario">✕</button>
+      <h2 class="modal-title" id="modal-horario-titulo">Agregar Horario</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-horario">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -343,11 +345,11 @@
 <!-- FAB solo visible en agenda -->
 <button id="btn-fab" class="btn btn-primary fab" style="display:none" title="Atajo: N (en Agenda)">+ Turno <kbd class="nav-kbd fab-kbd">N</kbd></button>
 <!-- MODAL: CAMBIAR CONTRASEÑA -->
-<div class="modal-overlay" id="modal-password">
+<div class="modal-overlay" id="modal-password" role="dialog" aria-modal="true" aria-labelledby="modal-password-titulo" aria-hidden="true">
   <div class="modal" style="max-width:380px">
     <div class="modal-header">
-      <span class="modal-title" id="modal-password-titulo">Cambiar contraseña</span>
-      <button class="modal-close" data-close-modal="modal-password">✕</button>
+      <h2 class="modal-title" id="modal-password-titulo">Cambiar contraseña</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-password">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -364,11 +366,11 @@
 </div>
 
 <!-- MODAL: 2FA -->
-<div class="modal-overlay" id="modal-2fa">
+<div class="modal-overlay" id="modal-2fa" role="dialog" aria-modal="true" aria-labelledby="modal-2fa-titulo" aria-hidden="true">
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
-      <span class="modal-title">Autenticación de dos factores</span>
-      <button class="modal-close" data-close-modal="modal-2fa">✕</button>
+      <h2 class="modal-title" id="modal-2fa-titulo">Autenticación de dos factores</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-2fa">✕</button>
     </div>
     <div class="modal-body">
       <div id="tfa-status-block" style="margin-bottom:1rem;font-size:.88rem">Cargando…</div>
@@ -433,6 +435,6 @@
 <div id="toast-container"></div>
 <datalist id="datalist-financiadores"></datalist>
 <datalist id="datalist-planes"></datalist>
-<script src="/static/js/app.js?v=14"></script>
+<script src="/static/js/app.js?v=15"></script>
 </body>
 </html>
