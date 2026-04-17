@@ -9,7 +9,17 @@ let turnoEditing = null, pacienteEditing = null, medicoEditing = null, horarioPa
 let pacSort = { key: "apellido", dir: "asc" };
 
 /* ── Auth ──────────────────────────────────────────────── */
-const currentUser = JSON.parse(localStorage.getItem("user") || "null");
+function _readStoredUser() {
+  const raw = localStorage.getItem("user");
+  if (!raw) return null;
+  try { return JSON.parse(raw); }
+  catch (e) {
+    console.warn("user en localStorage corrupto, limpiando:", e);
+    localStorage.removeItem("user");
+    return null;
+  }
+}
+const currentUser = _readStoredUser();
 if (!localStorage.getItem("token")) { window.location.href = "/login"; }
 
 const $ = id => document.getElementById(id);
@@ -281,10 +291,17 @@ document.head.appendChild(acStyle);
 /* ── Navegación ─────────────────────────────────────────── */
 function navTo(view) {
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n=>{
+    n.classList.remove("active");
+    n.removeAttribute("aria-current");
+  });
   $(view).classList.add("active");
-  document.querySelector(`[data-view="${view}"]`)?.classList.add("active");
-  document.querySelector(".sidebar").classList.remove("open");
+  const navBtn = document.querySelector(`[data-view="${view}"]`);
+  if (navBtn) {
+    navBtn.classList.add("active");
+    navBtn.setAttribute("aria-current", "page");
+  }
+  _setSidebarOpen(false);
   $("btn-fab").style.display = view==="view-agenda" ? "flex" : "none";
   if(view==="view-agenda")        renderAgenda();
   if(view==="view-pacientes")     renderPacientes();
@@ -294,13 +311,24 @@ function navTo(view) {
   if(view==="view-audit")         renderAudit();
 }
 document.querySelectorAll(".nav-item[data-view]").forEach(el=>el.addEventListener("click",()=>navTo(el.dataset.view)));
+$("sidebar-change-password")?.addEventListener("click",()=>{
+  abrirCambiarPassword();
+  _setSidebarOpen(false);
+});
+$("sidebar-logout")?.addEventListener("click",()=>logout());
+function _setSidebarOpen(open) {
+  const sidebar = document.querySelector(".sidebar");
+  const toggle = $("menu-toggle");
+  if (!sidebar) return;
+  sidebar.classList.toggle("open", open);
+  if (toggle) toggle.setAttribute("aria-expanded", String(open));
+}
 $("menu-toggle").addEventListener("click",()=>{
-  document.querySelector(".sidebar").classList.toggle("open");
+  const isOpen = document.querySelector(".sidebar").classList.contains("open");
+  _setSidebarOpen(!isOpen);
 });
 // Cerrar sidebar al tocar fuera (mobile)
-document.querySelector(".main").addEventListener("click",()=>{
-  document.querySelector(".sidebar").classList.remove("open");
-});
+document.querySelector(".main").addEventListener("click",()=>_setSidebarOpen(false));
 
 /* ── Filtros persistentes (sessionStorage) ──────────────── */
 const _FILTROS = [
@@ -346,7 +374,10 @@ async function init() {
 
   // Si es medico, ocultar secciones que no corresponden
   if (currentUser && currentUser.role === "medico") {
-    document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
+    document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>{
+      const li = el.closest("li");
+      (li || el).style.display = "none";
+    });
     document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
   }
 
@@ -435,9 +466,9 @@ async function renderDashboard() {
           const p = t.paciente;
           const obs = t.observaciones ? `<div class="dash-turno-obs">${esc(t.observaciones)}</div>` : "";
           const info = [];
-          if (p?.financiador) info.push(p.financiador + (p.plan ? " — "+p.plan : ""));
-          if (p?.telefono) info.push(p.telefono);
-          const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${esc(i)}</span>`).join("")}</div>` : "";
+          if (p?.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
+          if (p?.telefono) info.push(esc(p.telefono));
+          const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : "";
           return `<div class="dash-turno-card" onclick="abrirEditarTurno(${t.id})">
             <span class="dash-turno-hora">${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
             <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
@@ -583,8 +614,8 @@ async function renderTurnos(q) {
       if(p?.nro_hc)info.push(`HC: ${esc(p.nro_hc)}`);
       if(p?.dni)info.push(`DNI: ${esc(p.dni)}`);
       if(p?.telefono)info.push(`WhatsApp: ${esc(p.telefono)}`);
-      if(p?.financiador)info.push(p.financiador+(p.plan?" — "+p.plan:""));
-      if(p?.email)info.push(p.email);
+      if(p?.financiador)info.push(esc(p.financiador)+(p.plan?" — "+esc(p.plan):""));
+      if(p?.email)info.push(esc(p.email));
       const infoHtml=info.length?`<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>`:"";
       return `<div class="dash-turno-card" onclick="abrirEditarTurno(${t.id})">
         <span class="dash-turno-hora">${fmtFechaCorta(t.fecha_hora_inicio)} ${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
@@ -707,7 +738,7 @@ async function renderPacientes(q) {
           if (p.dni) info.push(`DNI: ${esc(p.dni)}`);
           if (p.telefono) info.push(esc(p.telefono));
           if (p.email) info.push(esc(p.email));
-          if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
+          if (p.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
           const infoStr = info.length ? `<span style="font-size:.78rem;color:var(--muted);display:inline-flex;gap:.6rem;flex-wrap:wrap">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
           return `<div class="dash-turno-card pac-card" style="align-items:center">
             <span class="dash-turno-paciente" style="font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
@@ -829,11 +860,13 @@ async function abrirEditarMedico(id) {
 async function guardarMedico() {
   const body={nombre:$("med-nombre").value.trim(),apellido:$("med-apellido").value.trim(),especialidad_id:parseInt($("med-especialidad").value),matricula:$("med-matricula").value.trim()||null,telefono:$("med-telefono").value.trim()||null,email:$("med-email").value.trim()||null,google_calendar_id:$("med-gcal").value.trim()||null};
   if(!body.nombre||!body.apellido||!body.especialidad_id){toast("Nombre, apellido y especialidad son obligatorios.","error");return;}
-  try{
-    if(medicoEditing){await api(`/medicos/${medicoEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Profesional actualizado ✓","success");}
-    else{await api("/medicos",{method:"POST",body:JSON.stringify(body)});toast("Profesional creado ✓","success");}
-    cerrarModal("modal-medico"); medicos=await api("/medicos"); populateSelects(); renderProfesionales();
-  }catch(e){toast(e.message,"error");}
+  await _withSubmitLock("modal-medico", async () => {
+    try{
+      if(medicoEditing){await api(`/medicos/${medicoEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Profesional actualizado ✓","success");}
+      else{await api("/medicos",{method:"POST",body:JSON.stringify(body)});toast("Profesional creado ✓","success");}
+      cerrarModal("modal-medico"); medicos=await api("/medicos"); populateSelects(); renderProfesionales();
+    }catch(e){toast(e.message,"error");}
+  });
 }
 async function eliminarMedico(id) {
   if(!confirm("¿Eliminar este profesional y todos sus datos asociados (turnos, usuario)?"))return;
@@ -851,10 +884,12 @@ function abrirAgregarHorario(medicoId) {
 async function guardarHorario() {
   const body={dia_semana:parseInt($("hor-dia").value),hora_inicio:$("hor-inicio").value,hora_fin:$("hor-fin").value,consultorio:parseInt($("hor-consultorio").value)};
   if(!body.hora_inicio||!body.hora_fin||body.hora_fin<=body.hora_inicio){toast("Horario inválido.","error");return;}
-  try{
-    await api(`/medicos/${horarioParaMedicoId}/horarios`,{method:"POST",body:JSON.stringify(body)});
-    toast("Horario agregado ✓","success"); cerrarModal("modal-horario"); medicos=await api("/medicos"); renderProfesionales();
-  }catch(e){toast(e.message,"error");}
+  await _withSubmitLock("modal-horario", async () => {
+    try{
+      await api(`/medicos/${horarioParaMedicoId}/horarios`,{method:"POST",body:JSON.stringify(body)});
+      toast("Horario agregado ✓","success"); cerrarModal("modal-horario"); medicos=await api("/medicos"); renderProfesionales();
+    }catch(e){toast(e.message,"error");}
+  });
 }
 async function eliminarHorario(horarioId) {
   if(!confirm("¿Eliminar este horario?"))return;
@@ -991,25 +1026,27 @@ async function guardarTurno() {
   const alertaHorario = _validarHorarioMedico(medicoId, $("turno-fecha-hora").value, parseInt($("turno-consultorio").value));
   if (alertaHorario && !confirm(alertaHorario + "\n\n¿Agendar de todas formas?")) return;
 
-  try{
-    // Actualizar financiador/plan del paciente si cambiaron
-    const fin=$("turno-financiador").value.trim().toUpperCase()||null;
-    const plan=$("turno-plan").value.trim().toUpperCase()||null;
-    const pac=pacientes.find(p=>p.id===pacienteId);
-    if(pac && (fin!==pac.financiador || plan!==pac.plan)){
-      await api(`/pacientes/${pacienteId}`,{method:"PUT",body:JSON.stringify({...pac,financiador:fin,plan:plan})});
-      pac.financiador=fin; pac.plan=plan;
-    }
-    const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),observaciones:$("turno-obs").value||null};
-    if(turnoEditing){
-      await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
-      toast("Turno actualizado ✓","success");
-    }else{
-      await api("/turnos",{method:"POST",body:JSON.stringify(body)});
-      toast("Turno creado ✓","success");
-    }
-    cerrarModal("modal-turno"); renderAgenda(); renderDashboard();
-  }catch(e){toast(e.message,"error");}
+  await _withSubmitLock("modal-turno", async () => {
+    try{
+      // Actualizar financiador/plan del paciente si cambiaron
+      const fin=$("turno-financiador").value.trim().toUpperCase()||null;
+      const plan=$("turno-plan").value.trim().toUpperCase()||null;
+      const pac=pacientes.find(p=>p.id===pacienteId);
+      if(pac && (fin!==pac.financiador || plan!==pac.plan)){
+        await api(`/pacientes/${pacienteId}`,{method:"PUT",body:JSON.stringify({...pac,financiador:fin,plan:plan})});
+        pac.financiador=fin; pac.plan=plan;
+      }
+      const body={paciente_id:pacienteId,medico_id:medicoId,consultorio:parseInt($("turno-consultorio").value),fecha_hora_inicio:$("turno-fecha-hora").value+":00",duracion_minutos:parseInt($("turno-duracion").value),observaciones:$("turno-obs").value||null};
+      if(turnoEditing){
+        await api(`/turnos/${turnoEditing}`,{method:"PUT",body:JSON.stringify({...body,estado:$("turno-estado").value})});
+        toast("Turno actualizado ✓","success");
+      }else{
+        await api("/turnos",{method:"POST",body:JSON.stringify(body)});
+        toast("Turno creado ✓","success");
+      }
+      cerrarModal("modal-turno"); renderAgenda(); renderDashboard();
+    }catch(e){toast(e.message,"error");}
+  });
 }
 async function cancelarTurno(id) {
   if(!confirm("¿Cancelar este turno?"))return;
@@ -1080,11 +1117,13 @@ async function guardarPaciente() {
     {id:"pac-apellido", msg:"El apellido es obligatorio"},
   ])) { toast("Completá los campos obligatorios.","error"); return; }
   const body={nombre:$("pac-nombre").value.trim().toUpperCase(),apellido:$("pac-apellido").value.trim().toUpperCase(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim().toLowerCase()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.trim().toUpperCase()||null,plan:$("pac-plan").value.trim().toUpperCase()||null,deriva:$("pac-deriva").value.trim().toUpperCase()||null};
-  try{
-    if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
-    else{await api("/pacientes",{method:"POST",body:JSON.stringify(body)});toast("Paciente creado ✓","success");}
-    cerrarModal("modal-paciente"); pacientes=await api("/pacientes"); populateSelects(); renderPacientes();
-  }catch(e){toast(e.message,"error");}
+  await _withSubmitLock("modal-paciente", async () => {
+    try{
+      if(pacienteEditing){await api(`/pacientes/${pacienteEditing}`,{method:"PUT",body:JSON.stringify(body)});toast("Paciente actualizado ✓","success");}
+      else{await api("/pacientes",{method:"POST",body:JSON.stringify(body)});toast("Paciente creado ✓","success");}
+      cerrarModal("modal-paciente"); pacientes=await api("/pacientes"); populateSelects(); renderPacientes();
+    }catch(e){toast(e.message,"error");}
+  });
 }
 
 async function eliminarPaciente(id) {
@@ -1098,8 +1137,18 @@ async function eliminarPaciente(id) {
 
 /* ── Atajos de teclado ──────────────────────────────────── */
 document.addEventListener("keydown", e=>{
+  // ESC cierra el último modal abierto incluso desde dentro de un input
+  if (e.key === "Escape") {
+    const openModals = document.querySelectorAll(".modal-overlay.open");
+    if (openModals.length) {
+      const last = openModals[openModals.length - 1];
+      if (last.id === "modal-password" && _pwForced) return;
+      last.classList.remove("open");
+      clearFormErrors(last.id);
+      return;
+    }
+  }
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-  if (e.key === "Escape") document.querySelectorAll(".modal-overlay.open").forEach(m=>m.classList.remove("open"));
   if (e.key === "1") navTo("view-dashboard");
   if (e.key === "2") navTo("view-agenda");
   if (e.key === "3") navTo("view-turnos");
@@ -1122,6 +1171,84 @@ function cerrarModal(id){
   }
   $(id).classList.remove("open"); clearFormErrors(id);
 }
+
+/* ── Anti double-submit ─────────────────────────────────── */
+const _submitLocks = Object.create(null);
+async function _withSubmitLock(modalId, fn) {
+  if (_submitLocks[modalId]) return;
+  _submitLocks[modalId] = true;
+  const btn = document.querySelector(`#${modalId} .modal-footer .btn-primary`);
+  const originalLabel = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); btn.textContent = "Guardando…"; }
+  try { return await fn(); }
+  finally {
+    _submitLocks[modalId] = false;
+    if (btn) { btn.disabled = false; btn.removeAttribute("aria-busy"); if (originalLabel) btn.textContent = originalLabel; }
+  }
+}
+
+/* ── Accesibilidad de modales: aria-hidden, focus trap y restore ─── */
+const FOCUSABLE_SEL = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function _focusablesIn(modal) {
+  return Array.from(modal.querySelectorAll(FOCUSABLE_SEL))
+    .filter(el => el.offsetParent !== null || el === document.activeElement);
+}
+
+function _trapTab(modal, e) {
+  if (e.key !== "Tab") return;
+  const items = _focusablesIn(modal);
+  if (items.length === 0) { e.preventDefault(); return; }
+  const first = items[0], last = items[items.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && active === first) {
+    e.preventDefault(); last.focus();
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault(); first.focus();
+  }
+}
+
+function _onModalOpen(overlay) {
+  overlay.setAttribute("aria-hidden", "false");
+  overlay._prevFocus = document.activeElement;
+  const modal = overlay.querySelector(".modal") || overlay;
+  const first = _focusablesIn(modal).find(el => !el.classList.contains("modal-close")) || _focusablesIn(modal)[0];
+  if (first) setTimeout(() => first.focus(), 0);
+  overlay._trapHandler = (e) => _trapTab(modal, e);
+  overlay.addEventListener("keydown", overlay._trapHandler);
+}
+
+function _onModalClose(overlay) {
+  overlay.setAttribute("aria-hidden", "true");
+  if (overlay._trapHandler) {
+    overlay.removeEventListener("keydown", overlay._trapHandler);
+    overlay._trapHandler = null;
+  }
+  const prev = overlay._prevFocus;
+  overlay._prevFocus = null;
+  if (prev && typeof prev.focus === "function" && document.body.contains(prev)) {
+    try { prev.focus(); } catch {}
+  }
+}
+
+(function _setupModalA11y() {
+  const overlays = document.querySelectorAll(".modal-overlay");
+  const observer = new MutationObserver(muts => {
+    muts.forEach(m => {
+      if (m.type !== "attributes" || m.attributeName !== "class") return;
+      const el = m.target;
+      const isOpen = el.classList.contains("open");
+      const wasOpen = el._wasOpen === true;
+      if (isOpen && !wasOpen) _onModalOpen(el);
+      else if (!isOpen && wasOpen) _onModalClose(el);
+      el._wasOpen = isOpen;
+    });
+  });
+  overlays.forEach(el => {
+    el._wasOpen = el.classList.contains("open");
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+  });
+})();
 
 /* ── Cambiar contraseña ───────────────────────────────────── */
 function abrirCambiarPassword() {
