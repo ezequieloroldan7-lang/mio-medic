@@ -8,10 +8,17 @@ from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
+from auth import generate_ical_token, verify_ical_token
 from database import get_db
 
 log = logging.getLogger("miomedic.medicos")
+
+# Router principal: protegido con auth global en main.py
 router = APIRouter(tags=["medicos"])
+
+# Router público para feeds firmados (iCal). El token firmado reemplaza al Bearer
+# porque Google Calendar no puede mandar headers personalizados.
+public_router = APIRouter(tags=["medicos-public"])
 
 
 # ── iCal helpers ─────────────────────────────────────────────
@@ -203,14 +210,44 @@ def disponibilidad(
 
 
 # ── Calendario iCal (.ics) ────────────────────────────────
-@router.get("/medicos/{medico_id}/calendario.ics")
-def calendario_ical(medico_id: int, db: Session = Depends(get_db)):
+@router.get("/medicos/{medico_id}/calendario-url")
+def calendario_url(medico_id: int, regenerate: bool = Query(False), db: Session = Depends(get_db)):
     """
-    Feed iCal con los turnos del médico.
+    Devuelve la URL firmada (token) del feed iCal del médico. Si aún no tiene
+    token o se pide `regenerate=true`, se genera uno nuevo (invalidando el anterior).
+    Requiere autenticación — solo el admin / el propio médico deberían usarlo.
+    """
+    m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
+    if not m:
+        raise HTTPException(404, "Médico no encontrado")
+    if regenerate or not m.ical_token:
+        m.ical_token = generate_ical_token()
+        db.commit()
+    return {
+        "medico_id": m.id,
+        "ical_token": m.ical_token,
+        "path": f"/feed/medicos/{m.id}/calendario.ics?token={m.ical_token}",
+    }
+
+
+@public_router.get("/feed/medicos/{medico_id}/calendario.ics")
+def calendario_ical(
+    medico_id: int,
+    token: str = Query(..., description="Token firmado del médico (ver /medicos/{id}/calendario-url)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Feed iCal público firmado con los turnos del médico.
     El profesional pega esta URL en Google Calendar → "Otros calendarios" →
     "Desde URL" y los turnos se sincronizan automáticamente.
+    El `token` reemplaza al Bearer porque Google Calendar no manda headers.
     """
-    m = _get_medico(medico_id, db)
+    m = db.query(models.Medico).options(
+        joinedload(models.Medico.especialidad),
+    ).filter(models.Medico.id == medico_id).first()
+    if not m or not verify_ical_token(medico_id, token, m.ical_token):
+        # 404 en vez de 403 para no filtrar existencia
+        raise HTTPException(404, "Feed no encontrado o token inválido")
 
     # Últimos 30 días + todos los futuros
     desde = datetime.now() - timedelta(days=30)

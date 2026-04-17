@@ -5,6 +5,19 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      # Clave de firma JWT — Render la genera automáticamente y la persiste.
+      # NO copiar en otros servicios ni subir al repo.
+      - key: SECRET_KEY
+        generateValue: true
+      # Contraseña inicial del admin. Render la genera una vez; se loguea al
+      # primer arranque y debe cambiarse en el primer login.
+      - key: INITIAL_ADMIN_PASSWORD
+        generateValue: true
+      # Lista blanca de orígenes CORS. Por default el frontend se sirve desde
+      # el mismo dominio que el backend, así que alcanza con dejar vacío.
+      # Si hubiera un frontend en otro dominio, listarlo separado por comas.
+      - key: CORS_ORIGINS
+        value: ""
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID

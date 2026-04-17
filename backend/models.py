@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Enum, Index
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 from database import Base
 import enum
@@ -44,6 +44,7 @@ class Medico(Base):
     email           = Column(String)
     matricula           = Column(String)
     google_calendar_id  = Column(String)   # email del Google Calendar (ej. dr@gmail.com)
+    ical_token          = Column(String)   # token para feed público .ics (URL firmada)
     especialidad    = relationship("Especialidad", back_populates="medicos")
     turnos          = relationship("Turno", back_populates="medico")
     horarios        = relationship("HorarioMedico", back_populates="medico", cascade="all, delete-orphan")
@@ -90,4 +91,5 @@ class User(Base):
     display_name  = Column(String, nullable=False)
     role          = Column(String, nullable=False, default="medico")  # "admin" o "medico"
     medico_id     = Column(Integer, ForeignKey("medicos.id"), nullable=True)
+    must_change_password = Column(Boolean, nullable=False, default=False)
     medico        = relationship("Medico")

@@ -76,6 +76,7 @@ class TokenOut(BaseModel):
 class UserOut(BaseModel):
     id: int; username: str; display_name: str
     role: str; medico_id: Optional[int] = None
+    must_change_password: bool = False
     class Config: from_attributes = True
 
 class UserCreate(BaseModel):

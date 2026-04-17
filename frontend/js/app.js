@@ -287,6 +287,21 @@ async function init() {
     if ($("sidebar-user-name")) $("sidebar-user-name").textContent = currentUser.display_name;
   }
 
+  // Revalidar flag must_change_password desde backend (puede haber cambiado tras reset)
+  try {
+    const me = await api("/auth/me");
+    if (me && currentUser) {
+      currentUser.must_change_password = !!me.must_change_password;
+      localStorage.setItem("user", JSON.stringify(currentUser));
+    }
+    if (me && me.must_change_password) {
+      _forceChangePassword();
+      return; // no cargamos el resto hasta que cambie la clave
+    }
+  } catch (e) {
+    // 401 → /api interceptor hace logout; cualquier otro error no bloquea init
+  }
+
   // Si es medico, ocultar secciones que no corresponden
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
@@ -548,13 +563,32 @@ $("filtro-fecha")?.addEventListener("change",()=>renderTurnos());
 $("filtro-buscar-turno")?.addEventListener("input",e=>renderTurnos(e.target.value));
 
 /* ── Exportar CSV ───────────────────────────────────────── */
-function exportarTurnosCSV() {
+async function exportarTurnosCSV() {
   const desde = prompt("Desde (YYYY-MM-DD). Dejar vacío para últimos 30 días:") || "";
   const hasta = prompt("Hasta (YYYY-MM-DD). Dejar vacío para hoy:") || "";
   const qs = [];
   if (desde) qs.push("desde=" + encodeURIComponent(desde));
   if (hasta) qs.push("hasta=" + encodeURIComponent(hasta));
-  window.open("/turnos/export.csv" + (qs.length?("?"+qs.join("&")):""), "_blank");
+  const url = "/turnos/export.csv" + (qs.length ? ("?" + qs.join("&")) : "");
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(url, {
+      headers: token ? { Authorization: "Bearer " + token } : {},
+    });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok) throw new Error("Error " + res.status);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    const blobUrl = URL.createObjectURL(blob);
+    a.href = blobUrl;
+    a.download = `turnos_${desde || "ultimos30"}_${hasta || "hoy"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch (e) {
+    toast("No se pudo exportar: " + e.message, "error");
+  }
 }
 window.exportarTurnosCSV = exportarTurnosCSV;
 
@@ -715,14 +749,22 @@ function renderHorariosPills(horarios, medicoId) {
 }
 
 /* ── Link Calendario iCal ────────────────────────────────── */
-function copiarLinkCalendario(medicoId) {
-  const url = `${location.origin}/medicos/${medicoId}/calendario.ics`;
-  navigator.clipboard.writeText(url).then(() => {
-    toast("Link del calendario copiado al portapapeles. Pegalo en Google Calendar → Otros calendarios → Desde URL.", "success");
-  }).catch(() => {
-    // Fallback si clipboard no disponible (http sin https)
-    prompt("Copiá este link y pegalo en Google Calendar → Otros calendarios → Desde URL:", url);
-  });
+async function copiarLinkCalendario(medicoId, regenerate = false) {
+  let url;
+  try {
+    const qs = regenerate ? "?regenerate=true" : "";
+    const res = await api(`/medicos/${medicoId}/calendario-url${qs}`);
+    url = `${location.origin}${res.path}`;
+  } catch (e) {
+    toast("No se pudo generar el link: " + e.message, "error");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link del calendario copiado. Pegalo en Google Calendar → Otros calendarios → Desde URL. No compartas este link.", "success");
+  } catch {
+    prompt("Copiá este link (contiene un token privado, no lo compartas):", url);
+  }
 }
 window.copiarLinkCalendario = copiarLinkCalendario;
 
@@ -1028,19 +1070,58 @@ document.addEventListener("keydown", e=>{
 });
 
 /* ── Helpers ─────────────────────────────────────────────── */
-function cerrarModal(id){$(id).classList.remove("open"); clearFormErrors(id);}
+let _pwForced = false;
+function cerrarModal(id){
+  if (id === "modal-password" && _pwForced) {
+    toast("Debes cambiar tu contraseña antes de continuar.","error");
+    return;
+  }
+  $(id).classList.remove("open"); clearFormErrors(id);
+}
 
 /* ── Cambiar contraseña ───────────────────────────────────── */
 function abrirCambiarPassword() {
   $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
   setModalTitle("modal-password-titulo","Cambiar contraseña","Mi cuenta");
+  _setPasswordModalForced(false);
   $("modal-password").classList.add("open");
 }
+
+function _setPasswordModalForced(forced) {
+  _pwForced = !!forced;
+  const modal = $("modal-password");
+  if (!modal) return;
+  const closeBtn = modal.querySelector(".modal-close");
+  const footer = modal.querySelector(".modal-footer");
+  if (closeBtn) closeBtn.style.display = forced ? "none" : "";
+  if (footer) {
+    const cancelBtn = footer.querySelector(".btn-outline");
+    if (cancelBtn) cancelBtn.style.display = forced ? "none" : "";
+  }
+}
+
+function _forceChangePassword() {
+  $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
+  setModalTitle("modal-password-titulo","Debes cambiar tu contraseña","Primer ingreso / reseteo");
+  _setPasswordModalForced(true);
+  $("modal-password").classList.add("open");
+  // Ocultar el resto de la app hasta que cambie la contraseña
+  document.body.classList.add("pw-locked");
+  const first = $("pw-current");
+  if (first) first.focus();
+}
 async function resetearPassword(userId, username) {
-  if(!confirm(`¿Resetear la contraseña de "${username}" a "mio2026"?`))return;
+  if(!confirm(`¿Resetear la contraseña de "${username}"? Se generará una contraseña temporal que el usuario deberá cambiar en el primer login.`))return;
   try{
     const res=await api(`/auth/users/${userId}/reset-password`,{method:"PUT"});
-    toast(res.detail,"success");
+    const tmp = res.temporary_password || "";
+    if (tmp) {
+      try { await navigator.clipboard.writeText(tmp); } catch {}
+      alert(`Contraseña temporal para "${username}":\n\n${tmp}\n\n(Ya se copió al portapapeles.) El usuario deberá cambiarla al iniciar sesión.`);
+      toast("Contraseña temporal generada y copiada","success");
+    } else {
+      toast(res.detail || "Contraseña reseteada","success");
+    }
   }catch(e){toast(e.message,"error");}
 }
 
@@ -1051,11 +1132,21 @@ async function guardarPassword() {
   if (!cur) { markFieldError("pw-current", "Ingresá tu contraseña actual"); ok = false; }
   if (!nw)  { markFieldError("pw-new",     "Ingresá la nueva contraseña"); ok = false; }
   if (!ok) { toast("Completá los campos obligatorios.","error"); return; }
-  if (nw.length < 4) { markFieldError("pw-new", "Mínimo 4 caracteres"); $("pw-new").focus(); return; }
+  if (nw.length < 8) { markFieldError("pw-new", "Mínimo 8 caracteres"); $("pw-new").focus(); return; }
+  if (nw === cur)    { markFieldError("pw-new", "Debe ser distinta a la actual"); $("pw-new").focus(); return; }
   if (nw !== conf)   { markFieldError("pw-confirm", "Las contraseñas no coinciden"); $("pw-confirm").focus(); return; }
   try{
     await api("/auth/change-password",{method:"PUT",body:JSON.stringify({current_password:cur,new_password:nw})});
-    toast("Contraseña actualizada","success"); cerrarModal("modal-password");
+    toast("Contraseña actualizada","success");
+    if (currentUser) { currentUser.must_change_password = false; localStorage.setItem("user", JSON.stringify(currentUser)); }
+    const wasForced = _pwForced;
+    _setPasswordModalForced(false);
+    $("modal-password").classList.remove("open"); clearFormErrors("modal-password");
+    document.body.classList.remove("pw-locked");
+    if (wasForced) {
+      // Recargar para re-inicializar con la sesión ya desbloqueada
+      location.reload();
+    }
   }catch(e){toast(e.message,"error");}
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m){m.classList.remove("open"); clearFormErrors(m.id);}}));

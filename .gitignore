@@ -2,6 +2,8 @@
 .env
 google-credentials
 google-credentials.json
+.secret_key
+backend/.secret_key
 
 # Base de datos
 *.db

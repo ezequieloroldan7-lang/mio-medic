@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
 import models
+from auth import generate_ical_token, get_current_user
 from database import SessionLocal, engine, get_db
 from routers import medicos, pacientes, turnos
 from routers.auth_router import router as auth_router
@@ -94,6 +95,22 @@ def _migrate_db():
             if "plan" not in cols:
                 conn.execute(text("ALTER TABLE pacientes ADD COLUMN plan TEXT"))
                 log.info("Migración: agregada columna plan")
+
+    # Nuevas columnas de seguridad (v2.1): must_change_password y ical_token
+    if "users" in insp.get_table_names():
+        user_cols = [c["name"] for c in insp.get_columns("users")]
+        if "must_change_password" not in user_cols:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"
+                ))
+            log.info("Migración: agregada columna users.must_change_password")
+    if "medicos" in insp.get_table_names():
+        med_cols = [c["name"] for c in insp.get_columns("medicos")]
+        if "ical_token" not in med_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE medicos ADD COLUMN ical_token TEXT"))
+            log.info("Migración: agregada columna medicos.ical_token")
 
     # Eliminar medicos de prueba (dejar solo Garrido)
     db = SessionLocal()
@@ -162,20 +179,42 @@ async def lifespan(app: FastAPI):
 # ── App ──────────────────────────────────────────────────────
 app = FastAPI(title="MIO MEDIC — Sistema de Turnos", version="2.0.0", lifespan=lifespan)
 
-# CORS — lista blanca desde env, con fallback a "*" (útil en dev / LAN interna)
-_cors_origins = os.getenv("CORS_ORIGINS", "*")
-origins = [o.strip() for o in _cors_origins.split(",")] if _cors_origins != "*" else ["*"]
+# CORS — lista blanca obligatoria desde env. Si no está seteada, solo se permite
+# same-origin (la app + el backend sirven desde el mismo dominio en Render).
+# Para habilitar clientes en otro origen, listar en CORS_ORIGINS separados por coma.
+# "*" solo se acepta si está explícitamente pedido (dev / LAN interna).
+_cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+if _cors_origins == "*":
+    origins = ["*"]
+    log.warning("CORS configurado como '*' — aceptable solo en dev/LAN interna.")
+elif _cors_origins:
+    origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+else:
+    origins = []  # same-origin only (frontend servido por la misma app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
+# ── Routers ──
+# auth_router: /auth/login debe ser público (si no, nadie puede loguearse).
+# Los endpoints de gestión de usuarios dentro de auth_router ya usan Depends(require_admin).
 app.include_router(auth_router)
-app.include_router(pacientes.router)
-app.include_router(turnos.router)
-app.include_router(medicos.router)
+
+# public_router de medicos: feed iCal firmado con token en query param (Google
+# Calendar no puede mandar Authorization header). Va SIN auth global.
+app.include_router(medicos.public_router)
+
+# El resto requiere autenticación. Dependencies a nivel de router aplica a TODOS
+# los endpoints del router — cierra de golpe el agujero de CRUD público de pacientes,
+# turnos y médicos (incluyendo export.csv, disponibilidad, resumen, etc.).
+_auth_dep = [Depends(get_current_user)]
+app.include_router(pacientes.router, dependencies=_auth_dep)
+app.include_router(turnos.router,    dependencies=_auth_dep)
+app.include_router(medicos.router,   dependencies=_auth_dep)
 
 # Servir frontend estático
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
@@ -198,7 +237,7 @@ def health():
 
 
 # ── Resumen rápido para el dashboard ─────────────────────────
-@app.get("/resumen")
+@app.get("/resumen", dependencies=[Depends(get_current_user)])
 def resumen(db: Session = Depends(get_db)):
     """Resumen ligero para el header/dashboard (hoy, mañana, semana)."""
     hoy = date.today()
@@ -270,21 +309,35 @@ def _seed_datos_iniciales():
 
 
 def _seed_admin_user():
-    """Crea el usuario admin MIO TURNOS y usuarios por profesional si no existen."""
+    """
+    Crea el usuario admin MIO TURNOS y usuarios por profesional si no existen.
+
+    Seguridad: la password inicial se toma de la variable de entorno
+    INITIAL_ADMIN_PASSWORD (o INITIAL_USER_PASSWORD para médicos). Si no está
+    seteada, se genera una aleatoria y se loguea UNA VEZ. En ambos casos se
+    marca must_change_password=True para forzar el cambio en el primer login.
+    """
+    import secrets
     from auth import hash_password
     db = SessionLocal()
     try:
         # Admin / secretaria
         if not db.query(models.User).filter(models.User.username == "mioturnos").first():
+            pw = os.getenv("INITIAL_ADMIN_PASSWORD") or secrets.token_urlsafe(9)
             admin = models.User(
                 username="mioturnos",
-                password_hash=hash_password("mio2026"),
+                password_hash=hash_password(pw),
                 display_name="MIO TURNOS",
                 role="admin",
+                must_change_password=True,
             )
             db.add(admin)
             db.commit()
-            log.info("Usuario admin 'mioturnos' creado (password: mio2026).")
+            log.warning(
+                "Usuario admin 'mioturnos' creado. Contraseña inicial: %s "
+                "(cambiala en el primer login). Anotala: no se mostrará de nuevo.",
+                pw,
+            )
 
         # Un usuario por cada médico que no tenga usuario
         medicos_sin_user = db.query(models.Medico).filter(
@@ -300,16 +353,32 @@ def _seed_admin_user():
             username = f"{_clean(m.nombre)[0]}.{_clean(m.apellido)}"
             if db.query(models.User).filter(models.User.username == username).first():
                 continue
+            pw = os.getenv("INITIAL_USER_PASSWORD") or secrets.token_urlsafe(9)
             u = models.User(
                 username=username,
-                password_hash=hash_password("mio2026"),
+                password_hash=hash_password(pw),
                 display_name=f"Dr/a. {m.nombre} {m.apellido}",
                 role="medico",
                 medico_id=m.id,
+                must_change_password=True,
             )
             db.add(u)
-            log.info("Usuario medico '%s' creado para %s %s", username, m.nombre, m.apellido)
+            log.warning(
+                "Usuario medico '%s' creado para %s %s. Contraseña inicial: %s "
+                "(cambiala en el primer login).",
+                username, m.nombre, m.apellido, pw,
+            )
         db.commit()
+
+        # Generar ical_token para médicos que no lo tengan (feed firmado)
+        medicos_sin_token = db.query(models.Medico).filter(
+            (models.Medico.ical_token.is_(None)) | (models.Medico.ical_token == "")
+        ).all()
+        for m in medicos_sin_token:
+            m.ical_token = generate_ical_token()
+        if medicos_sin_token:
+            db.commit()
+            log.info("Generados %d ical_token para médicos existentes.", len(medicos_sin_token))
     except Exception as e:  # noqa: BLE001
         db.rollback()
         log.error("Error creando usuarios: %s", e)
