@@ -115,6 +115,13 @@ def require_admin(user: models.User = Depends(get_current_user)) -> models.User:
     return user
 
 
+def require_staff(user: models.User = Depends(get_current_user)) -> models.User:
+    """Admin o secretaría (rol 'turnos'). Los médicos reciben 403."""
+    if user.role not in ("admin", "turnos"):
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere rol de administración o secretaría.")
+    return user
+
+
 # ── iCal signed token (para feed público que pegás en Google Calendar) ──
 def generate_ical_token() -> str:
     """Token opaco de 32 bytes para feeds iCal."""

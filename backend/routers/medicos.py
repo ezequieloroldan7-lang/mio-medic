@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 import models
 import schemas
 from audit import audit
-from auth import generate_ical_token, get_current_user, verify_ical_token
+from auth import generate_ical_token, get_current_user, require_staff, verify_ical_token
 from database import get_db
 
 log = logging.getLogger("miomedic.medicos")
@@ -49,15 +49,29 @@ def listar_especialidades(db: Session = Depends(get_db)):
 
 
 @router.post("/especialidades", response_model=schemas.EspecialidadOut, status_code=201)
-def crear_especialidad(nombre: str, db: Session = Depends(get_db)):
-    nombre = nombre.strip()
+def crear_especialidad(
+    data: schemas.EspecialidadCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(require_staff),
+):
+    """Crea una especialidad nueva. Si ya existe (case-insensitive), devuelve
+    la existente. Solo admin y secretaría (role='turnos'); médicos reciben 403.
+    """
+    nombre = data.nombre.strip()
     if not nombre:
         raise HTTPException(400, "El nombre no puede estar vacío.")
-    existente = db.query(models.Especialidad).filter(models.Especialidad.nombre == nombre).first()
+    existente = db.query(models.Especialidad).filter(
+        models.Especialidad.nombre.ilike(nombre)
+    ).first()
     if existente:
         return existente
     e = models.Especialidad(nombre=nombre)
-    db.add(e); db.commit(); db.refresh(e)
+    db.add(e); db.flush()
+    audit(db, request, "especialidad.create", user=user,
+          entity_type="especialidad", entity_id=e.id,
+          details={"nombre": e.nombre})
+    db.commit(); db.refresh(e)
     return e
 
 

@@ -370,6 +370,8 @@ $("btn-save-turno")?.addEventListener("click", () => guardarTurno());
 $("btn-save-paciente")?.addEventListener("click", () => guardarPaciente());
 $("btn-save-medico")?.addEventListener("click", () => guardarMedico());
 $("btn-save-horario")?.addEventListener("click", () => guardarHorario());
+$("btn-nueva-especialidad")?.addEventListener("click", () => abrirNuevaEspecialidad());
+$("btn-save-especialidad")?.addEventListener("click", () => guardarEspecialidad());
 $("btn-save-password")?.addEventListener("click", () => guardarPassword());
 $("btn-2fa-activate")?.addEventListener("click", () => activar2FA());
 $("btn-2fa-disable")?.addEventListener("click", () => desactivar2FA());
@@ -424,6 +426,10 @@ async function init() {
       const li = el.closest("li");
       (li || el).style.display = "none";
     });
+    // "+ Nueva" especialidad: el backend bloquea medicos con require_staff,
+    // asi que escondemos el boton acá para no ofrecer una acción que igual fallaria.
+    const btnNuevaEsp = $("btn-nueva-especialidad");
+    if (btnNuevaEsp) btnNuevaEsp.style.display = "none";
   }
   // Las pestañas .admin-only solo son para role="admin". Cualquier otro rol
   // (medico, turnos, o lo que venga) las ve ocultas. El backend igual gatea
@@ -920,6 +926,32 @@ async function guardarMedico() {
       else{await api("/medicos",{method:"POST",body:JSON.stringify(body)});toast("Profesional creado ✓","success");}
       cerrarModal("modal-medico"); medicos=await api("/medicos"); populateSelects(); renderProfesionales();
     }catch(e){toast(e.message,"error");}
+  });
+}
+
+/* ── Modal Nueva Especialidad ─────────────────────────────
+ * Abierto desde el modal de Profesional. Al guardar, refresca la lista
+ * global y deja la nueva seleccionada en #med-especialidad.
+ */
+function abrirNuevaEspecialidad() {
+  $("esp-nombre").value = "";
+  $("modal-especialidad").classList.add("open");
+  setTimeout(() => $("esp-nombre").focus(), 50);
+}
+async function guardarEspecialidad() {
+  const nombre = $("esp-nombre").value.trim();
+  if (!nombre) { toast("Ingresá un nombre.", "error"); return; }
+  await _withSubmitLock("modal-especialidad", async () => {
+    try {
+      const nueva = await api("/especialidades", { method: "POST", body: JSON.stringify({ nombre }) });
+      toast("Especialidad guardada ✓", "success");
+      cerrarModal("modal-especialidad");
+      especialidades = await api("/especialidades");
+      populateSelects();
+      // Dejar seleccionada la nueva en el modal de profesional si está abierto
+      const sel = $("med-especialidad");
+      if (sel) sel.value = nueva.id;
+    } catch (e) { toast(e.message, "error"); }
   });
 }
 async function eliminarMedico(id) {
