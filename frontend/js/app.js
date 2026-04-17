@@ -297,6 +297,16 @@ document.querySelectorAll(".nav-item[data-view]").forEach(el=>el.addEventListene
 $("menu-toggle").addEventListener("click",()=>{
   document.querySelector(".sidebar").classList.toggle("open");
 });
+
+/* ── Header / sidebar user actions (CSP strict: sin onclick inline) ── */
+$("btn-header-2fa")?.addEventListener("click", () => abrir2FA());
+$("btn-header-password")?.addEventListener("click", () => abrirCambiarPassword());
+$("btn-header-logout")?.addEventListener("click", () => logout());
+$("sidebar-password")?.addEventListener("click", () => {
+  abrirCambiarPassword();
+  document.querySelector(".sidebar").classList.remove("open");
+});
+$("sidebar-logout")?.addEventListener("click", () => logout());
 // Cerrar sidebar al tocar fuera (mobile)
 document.querySelector(".main").addEventListener("click",()=>{
   document.querySelector(".sidebar").classList.remove("open");

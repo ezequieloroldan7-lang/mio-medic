@@ -26,9 +26,9 @@
   </div>
   <div class="header-user-desktop">
     <span id="user-display" class="header-user-name"></span>
-    <button class="header-action-btn" onclick="abrir2FA()">2FA</button>
-    <button class="header-action-btn" onclick="abrirCambiarPassword()">Clave</button>
-    <button class="header-action-btn" onclick="logout()">Salir</button>
+    <button class="header-action-btn" id="btn-header-2fa">2FA</button>
+    <button class="header-action-btn" id="btn-header-password">Clave</button>
+    <button class="header-action-btn" id="btn-header-logout">Salir</button>
   </div>
 </header>
 
@@ -46,8 +46,8 @@
       <div class="nav-item admin-only" data-view="view-audit" title="Atajo: 6"><span class="nav-icon">⎙</span> Auditoría <kbd class="nav-kbd">6</kbd></div>
       <div class="nav-divider sidebar-user-mobile"></div>
       <div class="nav-item sidebar-user-mobile" id="sidebar-user-name" style="font-size:.78rem;color:#A89888;pointer-events:none;"></div>
-      <div class="nav-item sidebar-user-mobile" onclick="abrirCambiarPassword();document.querySelector('.sidebar').classList.remove('open')"><span class="nav-icon">◐</span> Cambiar clave</div>
-      <div class="nav-item sidebar-user-mobile" onclick="logout()"><span class="nav-icon">↗</span> Cerrar sesion</div>
+      <div class="nav-item sidebar-user-mobile" id="sidebar-password"><span class="nav-icon">◐</span> Cambiar clave</div>
+      <div class="nav-item sidebar-user-mobile" id="sidebar-logout"><span class="nav-icon">↗</span> Cerrar sesion</div>
     </nav>
   </aside>
 
