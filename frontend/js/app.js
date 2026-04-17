@@ -585,8 +585,10 @@ async function renderDashboard() {
           const p = t.paciente;
           const obs = t.observaciones ? `<div class="dash-turno-obs">${esc(t.observaciones)}</div>` : "";
           const info = [];
-          if (p?.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
+          if (p?.nro_hc) info.push(`HC: ${esc(p.nro_hc)}`);
+          if (p?.dni) info.push(`DNI: ${esc(p.dni)}`);
           if (p?.telefono) info.push(esc(p.telefono));
+          if (p?.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
           const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : "";
           return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
 
@@ -860,7 +862,6 @@ async function renderTurnos(q) {
       if(p?.dni)info.push(`DNI: ${esc(p.dni)}`);
       if(p?.telefono)info.push(`WhatsApp: ${esc(p.telefono)}`);
       if(p?.financiador)info.push(esc(p.financiador)+(p.plan?" — "+esc(p.plan):""));
-      if(p?.email)info.push(esc(p.email));
       const infoHtml=info.length?`<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>`:"";
       return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
         <span class="dash-turno-hora">${fmtFechaCorta(t.fecha_hora_inicio)} ${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
@@ -975,26 +976,41 @@ async function renderPacientes(q) {
            <div style="margin-bottom:.75rem">No hay pacientes todavía.</div>
            <button class="btn btn-primary btn-sm" id="btn-crear-paciente-vacio">+ Agregar primer paciente</button>
          </div>`;
-    $("tabla-pacientes").innerHTML = ordenados.length === 0
-      ? emptyMsg
-      : ordenados.map(p => {
-          const info = [];
-          if (p.nro_hc) info.push(`HC: ${esc(p.nro_hc)}`);
-          if (p.dni) info.push(`DNI: ${esc(p.dni)}`);
-          if (p.telefono) info.push(esc(p.telefono));
-          if (p.email) info.push(esc(p.email));
-          if (p.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
-          const infoStr = info.length ? `<span style="font-size:.78rem;color:var(--muted);display:inline-flex;gap:.6rem;flex-wrap:wrap">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
-          return `<div class="dash-turno-card pac-card" style="align-items:center">
-            <span class="dash-turno-paciente" style="font-weight:600">${esc(p.nombre)} ${esc(p.apellido)}</span>
-            ${infoStr}
-            <span class="pac-actions" style="margin-left:auto;display:flex;gap:.35rem;flex-shrink:0">
-              <button class="btn btn-sm btn-primary" data-action="nuevo-turno-paciente" data-id="${p.id}">Turno</button>
-              <button class="btn btn-sm btn-outline" data-action="editar-paciente" data-id="${p.id}">Editar</button>
-              <button class="btn btn-sm btn-danger" data-action="eliminar-paciente" data-id="${p.id}">Eliminar</button>
-            </span>
-          </div>`;
-        }).join("");
+    if (ordenados.length === 0) {
+      $("tabla-pacientes").innerHTML = emptyMsg;
+    } else {
+      const rows = ordenados.map(p => {
+        const finPlan = [p.financiador, p.plan].filter(Boolean).join(" — ");
+        const dash = "—";
+        return `<tr>
+          <td class="pac-td-nombre">${esc(p.nombre)} ${esc(p.apellido)}</td>
+          <td>${p.nro_hc ? esc(p.nro_hc) : dash}</td>
+          <td>${p.dni ? esc(p.dni) : dash}</td>
+          <td>${p.telefono ? esc(p.telefono) : dash}</td>
+          <td>${p.email ? esc(p.email) : dash}</td>
+          <td>${finPlan ? esc(finPlan) : dash}</td>
+          <td>${p.deriva ? esc(p.deriva) : dash}</td>
+          <td class="pac-actions-td">
+            <button class="btn btn-sm btn-primary" data-action="nuevo-turno-paciente" data-id="${p.id}">Turno</button>
+            <button class="btn btn-sm btn-outline" data-action="editar-paciente" data-id="${p.id}">Editar</button>
+            <button class="btn btn-sm btn-danger" data-action="eliminar-paciente" data-id="${p.id}">Eliminar</button>
+          </td>
+        </tr>`;
+      }).join("");
+      $("tabla-pacientes").innerHTML = `<table class="pac-table">
+        <thead><tr>
+          <th>Nombre Apellido</th>
+          <th>HC</th>
+          <th>DNI</th>
+          <th>Teléfono</th>
+          <th>Email</th>
+          <th>Financiador · Plan</th>
+          <th>Deriva</th>
+          <th aria-label="Acciones"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
     if (ordenados.length === 0) {
       const btn = document.getElementById("btn-crear-paciente-vacio");
       if (btn) btn.addEventListener("click", () => abrirNuevoPaciente(queryRaw));
