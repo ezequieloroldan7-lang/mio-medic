@@ -48,6 +48,9 @@ WA_TEMPLATE_NAME       = os.getenv("WHATSAPP_TEMPLATE_NAME", "recordatorio_turno
 WA_TEMPLATE_AGENDADO   = os.getenv("WHATSAPP_TEMPLATE_AGENDADO", "turno_agendado")
 WA_TEMPLATE_LANG       = os.getenv("WHATSAPP_TEMPLATE_LANG", "es_AR")
 WA_API_VERSION         = os.getenv("WHATSAPP_API_VERSION", "v21.0")
+# Workaround para el test number de Meta: rechaza el formato "549..." y solo acepta
+# "54...". Setear WHATSAPP_STRIP_AR_9=1 en el test. Quitar la variable en producción.
+WA_STRIP_AR_9    = os.getenv("WHATSAPP_STRIP_AR_9", "").lower() in ("1", "true", "yes")
 
 _GRAPH_URL = f"https://graph.facebook.com/{WA_API_VERSION}/{{pid}}/messages"
 
@@ -66,7 +69,7 @@ def formatear_telefono(tel: str) -> str:
 
     # Ya viene con 549 al inicio → respetar tal cual
     if tel.startswith("549") and len(tel) >= 12:
-        return tel
+        return ("54" + tel[3:]) if WA_STRIP_AR_9 else tel
 
     # Viene con 54 (línea fija o sin el 9) → quitar para normalizar
     if tel.startswith("54"):
@@ -80,9 +83,9 @@ def formatear_telefono(tel: str) -> str:
     if len(tel) == 12 and tel[2:4] == "15":
         tel = tel[:2] + tel[4:]
 
-    # Celulares argentinos: 10 u 11 dígitos → anteponer 549
+    # Celulares argentinos: 10 u 11 dígitos → anteponer 549 (o 54 si WA_STRIP_AR_9)
     if 10 <= len(tel) <= 11:
-        return "549" + tel
+        return ("54" if WA_STRIP_AR_9 else "549") + tel
 
     # Fallback conservador
     return "54" + tel
