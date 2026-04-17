@@ -24,10 +24,10 @@
     <div class="header-date" id="header-date"></div>
     <div class="header-time" id="header-time"></div>
   </div>
-  <div class="header-user-desktop" style="display:flex;align-items:center;gap:.6rem;margin-left:1rem;">
-    <span id="user-display" style="font-size:.75rem;color:#A89888;font-weight:500;"></span>
-    <button onclick="abrirCambiarPassword()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Clave</button>
-    <button onclick="logout()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Salir</button>
+  <div class="header-user-desktop">
+    <span id="user-display" class="header-user-name"></span>
+    <button class="header-action-btn" onclick="abrirCambiarPassword()">Clave</button>
+    <button class="header-action-btn" onclick="logout()">Salir</button>
   </div>
 </header>
 
@@ -59,20 +59,20 @@
           <div class="stat-num" id="dash-hoy">—</div>
           <div class="stat-lbl">Turnos hoy</div>
         </div>
-        <div class="stat-card" style="border-color:#4a85b5">
-          <div class="stat-num" id="dash-realizados" style="color:#2a5f8a">—</div>
+        <div class="stat-card stat-info">
+          <div class="stat-num" id="dash-realizados">—</div>
           <div class="stat-lbl">Realizados</div>
         </div>
-        <div class="stat-card" style="border-color:var(--success)">
-          <div class="stat-num" id="dash-confirmados" style="color:var(--success)">—</div>
+        <div class="stat-card stat-success">
+          <div class="stat-num" id="dash-confirmados">—</div>
           <div class="stat-lbl">Confirmados</div>
         </div>
-        <div class="stat-card" style="border-color:var(--warning)">
-          <div class="stat-num" id="dash-pendientes" style="color:var(--warning)">—</div>
+        <div class="stat-card stat-warning">
+          <div class="stat-num" id="dash-pendientes">—</div>
           <div class="stat-lbl">Pendientes</div>
         </div>
-        <div class="stat-card" style="border-color:var(--danger)">
-          <div class="stat-num" id="dash-ausentes" style="color:var(--danger)">—</div>
+        <div class="stat-card stat-danger">
+          <div class="stat-num" id="dash-ausentes">—</div>
           <div class="stat-lbl">Ausentes / Cancelados</div>
         </div>
       </div>
