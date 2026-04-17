@@ -217,7 +217,7 @@ function initPacienteAutocomplete(inputId, hiddenId) {
     drop.style.display = "none";
     if ($("turno-financiador")) $("turno-financiador").value = p.financiador || "";
     if ($("turno-plan")) $("turno-plan").value = p.plan || "";
-    if ($("btn-agregar-paciente")) $("btn-agregar-paciente").style.display = "none";
+    _resetBotonAgregarPaciente();
     // Mostrar info del paciente
     const infoEl = $("turno-pac-info");
     if (infoEl) {
@@ -252,15 +252,39 @@ function initPacienteAutocomplete(inputId, hiddenId) {
     });
   }
 
+  // Devuelve el paciente seleccionado actualmente (si hidden.value tiene un id válido)
+  function _currentSelection() {
+    const id = parseInt(hidden.value, 10);
+    if (!id) return null;
+    return pacientes.find(x => x.id === id) || null;
+  }
+  // "¿El texto del input coincide con el paciente seleccionado?"
+  function _textMatchesSelection(text) {
+    const p = _currentSelection();
+    return !!p && `${p.apellido} ${p.nombre}`.trim() === text.trim();
+  }
+
   input.addEventListener("input", function() {
-    const q = this.value.trim().toLowerCase();
+    const raw = this.value.trim();
+    // Si el texto aún coincide con la selección vigente, no invalidar: sería
+    // un re-dispatch (foco, focus+blur) que pierde el paciente ya elegido y
+    // muestra el botón "Agregar paciente" como si fuera uno nuevo.
+    if (_textMatchesSelection(raw)) {
+      drop.style.display = "none";
+      if ($("btn-agregar-paciente")) $("btn-agregar-paciente").style.display = "none";
+      return;
+    }
+    const q = raw.toLowerCase();
     hidden.value = "";
     if (!q) { drop.style.display="none"; if($("btn-agregar-paciente"))$("btn-agregar-paciente").style.display="none"; return; }
-    const filtered = pacientes.filter(p =>
-      p.apellido.toLowerCase().includes(q) ||
-      p.nombre.toLowerCase().includes(q)   ||
-      (p.nro_hc && p.nro_hc.toLowerCase().includes(q))
-    ).slice(0, 12);
+    // Multi-token: "sanchez valentina" matchea paciente cuyo "apellido nombre"
+    // contiene TODOS los tokens. Evita falsos negativos cuando el input
+    // muestra la forma concatenada de una selección previa.
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const filtered = pacientes.filter(p => {
+      const hay = `${p.apellido || ""} ${p.nombre || ""} ${p.nro_hc || ""}`.toLowerCase();
+      return tokens.every(t => hay.includes(t));
+    }).slice(0, 12);
     renderDrop(filtered);
     // Mostrar boton agregar paciente si no hay resultados exactos
     if ($("btn-agregar-paciente")) {
@@ -269,7 +293,11 @@ function initPacienteAutocomplete(inputId, hiddenId) {
   });
 
   input.addEventListener("focus", function() {
-    if (this.value.trim()) this.dispatchEvent(new Event("input"));
+    // Solo re-disparar el filtro si el texto NO corresponde a la selección
+    // actual (caso: el user dejó el input a medio escribir y vuelve a enfocarlo).
+    if (this.value.trim() && !_textMatchesSelection(this.value)) {
+      this.dispatchEvent(new Event("input"));
+    }
   });
 
   document.addEventListener("click", e => {
@@ -1006,6 +1034,17 @@ async function eliminarHorario(horarioId) {
 }
 
 /* ── Agregar paciente desde turno ───────────────────────── */
+/* Resetea el botón "+ Agregar paciente" a su estado inicial. Evita que un
+   onclick="agregarPacienteDesdeTurno" heredado de una acción previa
+   dispare la creación duplicada del mismo paciente al editar otro turno. */
+function _resetBotonAgregarPaciente() {
+  const btn = $("btn-agregar-paciente");
+  if (!btn) return;
+  btn.textContent = "+ Agregar paciente";
+  btn.onclick = null;
+  btn.style.display = "none";
+}
+
 async function mostrarCamposPacienteNuevo() {
   const fields = $("turno-new-pac-fields");
   if (!fields) return;
@@ -1038,7 +1077,7 @@ async function agregarPacienteDesdeTurno() {
     pacientes.push(nuevo);
     $("turno-paciente-id").value = nuevo.id;
     $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
-    $("btn-agregar-paciente").style.display = "none";
+    _resetBotonAgregarPaciente();
     $("turno-new-pac-fields").classList.remove("open");
     // Mostrar info
     const infoEl = $("turno-pac-info");
@@ -1059,8 +1098,7 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   $("turno-medico").value=""; $("turno-duracion").value="45";
   $("turno-financiador").value=""; $("turno-plan").value="";
   $("turno-obs").value="";
-  $("btn-agregar-paciente").style.display="none";
-  $("btn-agregar-paciente").textContent="+ Agregar paciente";
+  _resetBotonAgregarPaciente();
   if($("turno-pac-info")) $("turno-pac-info").style.display="none";
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
   if($("turno-new-dni")) $("turno-new-dni").value="";
@@ -1080,8 +1118,12 @@ async function abrirEditarTurno(id) {
   $("turno-medico").value=t.medico_id; $("turno-duracion").value=t.duracion_minutos;
   $("turno-financiador").value=t.paciente?.financiador||""; $("turno-plan").value=t.paciente?.plan||"";
   $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
-  $("btn-agregar-paciente").style.display="none";
+  _resetBotonAgregarPaciente();
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
+  if($("turno-new-dni")) $("turno-new-dni").value="";
+  if($("turno-new-tel")) $("turno-new-tel").value="";
+  if($("turno-new-hc")) $("turno-new-hc").value="";
+  const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   // Mostrar info del paciente
   const p=t.paciente;
   const infoEl=$("turno-pac-info");
