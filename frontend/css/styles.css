@@ -68,59 +68,15 @@
 
 /* ──────────────────────────────────────────────────────────────
    Dark mode
-   - Preferencia del sistema por defecto via prefers-color-scheme
-   - Override explícito via [data-theme="dark"] en <html>
-   - [data-theme="light"] fuerza tema claro aunque el SO sea dark
+   - Light es el default. No seguimos prefers-color-scheme.
+   - El usuario elige dark manualmente con el toggle del header;
+     queda persistido en localStorage y se aplica via [data-theme="dark"]
+     en <html> (manejado por theme.js).
    ────────────────────────────────────────────────────────────── */
 /* Tokens del tema dark: mid-tones de semánticos (para que #fff siga siendo
    legible en botones) + inversión de superficies/texto. Los -lt/-dk se
    flipan (los -lt se usan como fondo teñido tras chips/badges; los -dk se
    usan como texto sobre esos fondos). */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --primary:       #A89580;
-    --primary-dk:    #7A6857;
-    --primary-lt:    #5A4A3C;
-    --primary-hover: #8A7866;
-    --accent:        #2E2823;
-    --accent-dk:     #3A332C;
-    --accent-lt:     #221E19;
-    --surface-hover: #2F2923;
-    --success:       #6B8F71;
-    --success-lt:    #1E2A22;
-    --success-dk:    #B8E0BD;
-    --warning:       #B8924A;
-    --warning-lt:    #2E2617;
-    --warning-dk:    #EDC690;
-    --danger:        #A05555;
-    --danger-lt:     #2E1E1E;
-    --danger-dk:     #F5B3B3;
-    --info:          #5A9AC4;
-    --info-lt:       #1A2430;
-    --info-dk:       #B3D4EE;
-    --ausente:       #7A6B9A;
-    --ausente-lt:    #23213A;
-    --ausente-dk:    #BBACD9;
-
-    --text:          #F0EAE0;
-    --text-soft:     #C8BAA8;
-    --muted:         #9E9080;
-    --border:        #3A332C;
-    --border-lt:     #2E2823;
-    --bg:            #1A1614;
-    --white:         #26211C;
-
-    --shadow-xs:     0 1px 2px rgba(0,0,0,.4);
-    --shadow:        0 1px 3px rgba(0,0,0,.5), 0 4px 14px rgba(0,0,0,.3);
-    --shadow-lg:     0 4px 10px rgba(0,0,0,.5), 0 20px 40px rgba(0,0,0,.4);
-
-    --backdrop:      rgba(0,0,0,.6);
-    --focus-ring:    rgba(184,165,143,.3);
-
-    color-scheme: dark;
-  }
-}
-
 [data-theme="dark"] {
   --primary:       #A89580;
   --primary-dk:    #7A6857;
@@ -473,14 +429,19 @@ body {
   box-shadow: var(--shadow);
   z-index: 3;
 }
-.chip-pendiente  { background: var(--accent); color: var(--primary-dk); border-color: var(--primary-lt); }
+/* Chips de turno: texto con contraste WCAG AA.
+   - El color principal del chip (var(--*-dk) o var(--primary-dk)) tiene
+     ratio > 4.5:1 contra su background var(--*-lt). Se aplica a TODAS
+     las líneas del chip (nombre, HC, especialidad) — sin opacity, que
+     bajaba el contraste a <3:1 y hacía ilegible el detalle. */
+.chip-pendiente  { background: var(--accent);     color: var(--primary-dk); border-color: var(--primary-lt); }
 .chip-confirmado { background: var(--success-lt); color: var(--success-dk); border-color: var(--success); }
-.chip-cancelado  { background: var(--danger-lt); color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
+.chip-cancelado  { background: var(--danger-lt);  color: var(--danger-dk);  border-color: var(--danger); text-decoration: line-through; }
 .chip-ausente    { background: var(--ausente-lt); color: var(--ausente-dk); border-color: var(--ausente); }
-.chip-realizado  { background: var(--info-lt); color: var(--info-dk); border-color: var(--info); }
-.chip-nombre { font-weight: 600; font-size: .76rem; }
-.chip-hc     { font-size: .66rem; color: inherit; opacity: .7; font-weight: 400; }
-.chip-esp    { font-size: .66rem; opacity: .72; font-weight: 400; }
+.chip-realizado  { background: var(--info-lt);    color: var(--info-dk);    border-color: var(--info); }
+.chip-nombre { font-weight: 600; font-size: .78rem; line-height: 1.25; }
+.chip-hc     { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
+.chip-esp    { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
 
 /* ── Buttons ────────────────────────────────────────────────── */
 .btn {
@@ -1047,9 +1008,6 @@ a:focus-visible {
    y ☀ en dark (apreta para volver a light). */
 .theme-icon::before { content: "☽"; }
 [data-theme="dark"] .theme-icon::before { content: "☀"; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .theme-icon::before { content: "☀"; }
-}
 .btn-theme-toggle .theme-icon { font-size: .95rem; line-height: 1; }
 .header-action-btn.btn-theme-toggle { padding: .35rem .55rem; }
 
