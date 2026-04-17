@@ -312,6 +312,21 @@ document.querySelector(".main").addEventListener("click",()=>{
   document.querySelector(".sidebar").classList.remove("open");
 });
 
+/* ── Modales: cerrar + guardar (CSP strict: sin onclick inline) ── */
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-close-modal]");
+  if (el) cerrarModal(el.dataset.closeModal);
+});
+$("btn-save-turno")?.addEventListener("click", () => guardarTurno());
+$("btn-save-paciente")?.addEventListener("click", () => guardarPaciente());
+$("btn-save-medico")?.addEventListener("click", () => guardarMedico());
+$("btn-save-horario")?.addEventListener("click", () => guardarHorario());
+$("btn-save-password")?.addEventListener("click", () => guardarPassword());
+$("btn-2fa-activate")?.addEventListener("click", () => activar2FA());
+$("btn-2fa-disable")?.addEventListener("click", () => desactivar2FA());
+$("btn-2fa-start")?.addEventListener("click", () => iniciar2FA());
+$("btn-agregar-paciente")?.addEventListener("click", () => mostrarCamposPacienteNuevo());
+
 /* ── Filtros persistentes (sessionStorage) ──────────────── */
 const _FILTROS = [
   { id: "filtro-fecha",        key: "f_turnos_fecha", evt: "change" },

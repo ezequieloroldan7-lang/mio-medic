@@ -177,7 +177,7 @@
   <div class="modal">
     <div class="modal-header">
       <span class="modal-title" id="modal-turno-titulo">Nuevo Turno</span>
-      <button class="modal-close" onclick="cerrarModal('modal-turno')">✕</button>
+      <button class="modal-close" data-close-modal="modal-turno">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -185,7 +185,7 @@
           <label>Paciente *</label>
           <div style="display:flex;gap:.5rem;align-items:center;">
             <input type="text" id="turno-paciente-input" placeholder="Apellido Nombre" autocomplete="off" style="flex:1;text-transform:uppercase"/>
-            <button type="button" id="btn-agregar-paciente" onclick="mostrarCamposPacienteNuevo()" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
+            <button type="button" id="btn-agregar-paciente" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
           </div>
           <input type="hidden" id="turno-paciente-id"/>
           <div id="turno-pac-info" class="turno-pac-info" style="display:none"></div>
@@ -242,8 +242,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-turno')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarTurno()">Guardar turno</button>
+      <button class="btn btn-outline" data-close-modal="modal-turno">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-turno">Guardar turno</button>
     </div>
   </div>
 </div>
@@ -253,7 +253,7 @@
   <div class="modal">
     <div class="modal-header">
       <span class="modal-title" id="modal-paciente-titulo">Nuevo Paciente</span>
-      <button class="modal-close" onclick="cerrarModal('modal-paciente')">✕</button>
+      <button class="modal-close" data-close-modal="modal-paciente">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -269,8 +269,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-paciente')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarPaciente()">Guardar paciente</button>
+      <button class="btn btn-outline" data-close-modal="modal-paciente">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-paciente">Guardar paciente</button>
     </div>
   </div>
 </div>
@@ -280,7 +280,7 @@
   <div class="modal">
     <div class="modal-header">
       <span class="modal-title" id="modal-medico-titulo">Nuevo Profesional</span>
-      <button class="modal-close" onclick="cerrarModal('modal-medico')">✕</button>
+      <button class="modal-close" data-close-modal="modal-medico">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -297,8 +297,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-medico')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarMedico()">Guardar profesional</button>
+      <button class="btn btn-outline" data-close-modal="modal-medico">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-medico">Guardar profesional</button>
     </div>
   </div>
 </div>
@@ -308,7 +308,7 @@
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
       <span class="modal-title" id="modal-horario-titulo">Agregar Horario</span>
-      <button class="modal-close" onclick="cerrarModal('modal-horario')">✕</button>
+      <button class="modal-close" data-close-modal="modal-horario">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -334,8 +334,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-horario')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarHorario()">Agregar horario</button>
+      <button class="btn btn-outline" data-close-modal="modal-horario">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-horario">Agregar horario</button>
     </div>
   </div>
 </div>
@@ -347,7 +347,7 @@
   <div class="modal" style="max-width:380px">
     <div class="modal-header">
       <span class="modal-title" id="modal-password-titulo">Cambiar contraseña</span>
-      <button class="modal-close" onclick="cerrarModal('modal-password')">✕</button>
+      <button class="modal-close" data-close-modal="modal-password">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
@@ -357,8 +357,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-password')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarPassword()">Cambiar contraseña</button>
+      <button class="btn btn-outline" data-close-modal="modal-password">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-password">Cambiar contraseña</button>
     </div>
   </div>
 </div>
@@ -368,7 +368,7 @@
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
       <span class="modal-title">Autenticación de dos factores</span>
-      <button class="modal-close" onclick="cerrarModal('modal-2fa')">✕</button>
+      <button class="modal-close" data-close-modal="modal-2fa">✕</button>
     </div>
     <div class="modal-body">
       <div id="tfa-status-block" style="margin-bottom:1rem;font-size:.88rem">Cargando…</div>
@@ -390,7 +390,7 @@
           <label>Código de verificación</label>
           <input type="text" id="tfa-activate-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6 dígitos"/>
         </div>
-        <button class="btn btn-primary" onclick="activar2FA()" style="width:100%">Activar 2FA</button>
+        <button class="btn btn-primary" id="btn-2fa-activate" style="width:100%">Activar 2FA</button>
       </div>
 
       <div id="tfa-disable-block" style="display:none">
@@ -401,7 +401,7 @@
           <label>Contraseña actual</label>
           <input type="password" id="tfa-disable-pw"/>
         </div>
-        <button class="btn btn-outline" onclick="desactivar2FA()" style="width:100%">Desactivar 2FA</button>
+        <button class="btn btn-outline" id="btn-2fa-disable" style="width:100%">Desactivar 2FA</button>
       </div>
 
       <div id="tfa-start-block" style="display:none">
@@ -409,7 +409,7 @@
           2FA no está activo. Podés activarlo con una app como Google
           Authenticator o Authy para reforzar la seguridad de tu cuenta.
         </p>
-        <button class="btn btn-primary" onclick="iniciar2FA()" style="width:100%">Iniciar activación de 2FA</button>
+        <button class="btn btn-primary" id="btn-2fa-start" style="width:100%">Iniciar activación de 2FA</button>
       </div>
     </div>
   </div>
