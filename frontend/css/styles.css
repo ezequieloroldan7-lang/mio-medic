@@ -968,8 +968,16 @@ tr:hover td { background: var(--surface-hover); }
 .dash-turno-medico { font-size:.78rem; color:var(--muted); }
 .dash-turno-consultorio { font-size:.72rem; background:var(--accent); padding:.2rem var(--sp-sm); border-radius:4px; }
 .dash-turno-obs { width:100%; font-size:.78rem; color:var(--text-soft); margin-top:.2rem; line-height:1.4; white-space:pre-wrap; }
-.dash-turno-info { font-size:.72rem; color:var(--muted); display:flex; gap:.6rem; flex-wrap:wrap; }
-.dash-turno-actions { margin-left:auto; }
+/* Info del paciente (financiador, tel, email…) baja a su propia fila para que
+   la primera línea de la card (hora · paciente · consultorio · médico · badge
+   · acciones) quede simétrica entre turnos, sin importar cuántos datos tenga. */
+.dash-turno-info {
+  width:100%; font-size:.72rem; color:var(--muted);
+  display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.2rem;
+  padding-top:.35rem; border-top:1px dashed var(--border);
+}
+.dash-turno-info span { white-space:nowrap; }
+.dash-turno-actions { margin-left:auto; display:flex; gap:.35rem; flex-shrink:0; }
 
 /* Patient info row in turno modal */
 .turno-pac-info {
