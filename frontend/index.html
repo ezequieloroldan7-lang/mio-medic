@@ -26,6 +26,7 @@
   </div>
   <div class="header-user-desktop">
     <span id="user-display" class="header-user-name"></span>
+    <button class="header-action-btn" onclick="abrir2FA()">2FA</button>
     <button class="header-action-btn" onclick="abrirCambiarPassword()">Clave</button>
     <button class="header-action-btn" onclick="logout()">Salir</button>
   </div>
@@ -42,6 +43,7 @@
       <div class="nav-divider"></div>
       <div class="nav-item" data-view="view-pacientes" title="Atajo: 4"><span class="nav-icon">◎</span> Pacientes <kbd class="nav-kbd">4</kbd></div>
       <div class="nav-item" data-view="view-profesionales" title="Atajo: 5"><span class="nav-icon">✦</span> Profesionales <kbd class="nav-kbd">5</kbd></div>
+      <div class="nav-item admin-only" data-view="view-audit" title="Atajo: 6"><span class="nav-icon">⎙</span> Auditoría <kbd class="nav-kbd">6</kbd></div>
       <div class="nav-divider sidebar-user-mobile"></div>
       <div class="nav-item sidebar-user-mobile" id="sidebar-user-name" style="font-size:.78rem;color:#A89888;pointer-events:none;"></div>
       <div class="nav-item sidebar-user-mobile" onclick="abrirCambiarPassword();document.querySelector('.sidebar').classList.remove('open')"><span class="nav-icon">◐</span> Cambiar clave</div>
@@ -135,6 +137,23 @@
         <input type="text" id="buscar-paciente" placeholder="Buscar por nombre, apellido, DNI o HC..."/>
       </div>
       <div id="tabla-pacientes" class="dash-turnos-list">
+        <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- AUDITORIA (solo admin) -->
+    <div class="view" id="view-audit">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div class="page-title" style="margin:0;border:none;padding:0">Registro de auditoría</div>
+        <button class="btn btn-outline" id="btn-audit-refresh">↻ Recargar</button>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="audit-f-action" placeholder="Filtrar por acción (ej: login.ok)"/>
+        <input type="text" id="audit-f-username" placeholder="Usuario"/>
+        <input type="text" id="audit-f-entity-type" placeholder="Entidad (paciente, turno, user)"/>
+        <input type="number" id="audit-f-limit" placeholder="Máx. 1000" value="200" min="1" max="1000" style="max-width:120px"/>
+      </div>
+      <div id="audit-lista" class="dash-turnos-list">
         <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
       </div>
     </div>
@@ -340,6 +359,58 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="cerrarModal('modal-password')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarPassword()">Cambiar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 2FA -->
+<div class="modal-overlay" id="modal-2fa">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">Autenticación de dos factores</span>
+      <button class="modal-close" onclick="cerrarModal('modal-2fa')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="tfa-status-block" style="margin-bottom:1rem;font-size:.88rem">Cargando…</div>
+
+      <div id="tfa-setup-block" style="display:none">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+          Abrí tu app de autenticación (Google Authenticator, Authy, 1Password, etc.)
+          y elegí <b>“Agregar cuenta” → “Ingresar una clave de configuración”</b>.
+          Copiá la clave de abajo. Luego ingresá el código de 6 dígitos que te genere la app.
+        </p>
+        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Clave secreta (Base32)</div>
+        <div style="font-family:monospace;font-size:.95rem;letter-spacing:.12em;word-break:break-all;background:#f5f0eb;padding:.6rem .8rem;border-radius:6px;margin-bottom:.5rem" id="tfa-secret-line"></div>
+        <button class="btn btn-outline" type="button" id="tfa-copy-btn" style="font-size:.75rem;padding:.35rem .7rem;margin-bottom:.75rem">Copiar clave</button>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">
+          En mobile podés tocar este link para abrir directamente la app:
+          <a id="tfa-otpauth-link" href="#" style="word-break:break-all;color:#6B5B4F">otpauth://…</a>
+        </div>
+        <div class="form-group full">
+          <label>Código de verificación</label>
+          <input type="text" id="tfa-activate-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6 dígitos"/>
+        </div>
+        <button class="btn btn-primary" onclick="activar2FA()" style="width:100%">Activar 2FA</button>
+      </div>
+
+      <div id="tfa-disable-block" style="display:none">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+          Para desactivar 2FA, confirmá tu contraseña.
+        </p>
+        <div class="form-group full">
+          <label>Contraseña actual</label>
+          <input type="password" id="tfa-disable-pw"/>
+        </div>
+        <button class="btn btn-outline" onclick="desactivar2FA()" style="width:100%">Desactivar 2FA</button>
+      </div>
+
+      <div id="tfa-start-block" style="display:none">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+          2FA no está activo. Podés activarlo con una app como Google
+          Authenticator o Authy para reforzar la seguridad de tu cuenta.
+        </p>
+        <button class="btn btn-primary" onclick="iniciar2FA()" style="width:100%">Iniciar activación de 2FA</button>
+      </div>
     </div>
   </div>
 </div>

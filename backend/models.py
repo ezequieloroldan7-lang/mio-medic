@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 from database import Base
+from crypto import EncryptedStr
 import enum
 from datetime import datetime
 
@@ -18,9 +19,10 @@ class Paciente(Base):
     id        = Column(Integer, primary_key=True, index=True)
     nombre    = Column(String, nullable=False, index=True)
     apellido  = Column(String, nullable=False, index=True)
-    telefono  = Column(String)
-    email     = Column(String)
-    dni       = Column(String, index=True)
+    # PII cifrado at-rest (AES-GCM con FIELD_ENCRYPTION_KEY). Transparente al caller.
+    telefono  = Column(EncryptedStr)
+    email     = Column(EncryptedStr)
+    dni       = Column(String, index=True)   # sigue en claro para permitir LIKE search
     nro_hc    = Column(String, index=True)
     financiador = Column(String, index=True)
     plan        = Column(String)
@@ -41,8 +43,9 @@ class Medico(Base):
     nombre          = Column(String, nullable=False)
     apellido        = Column(String, nullable=False, index=True)
     especialidad_id = Column(Integer, ForeignKey("especialidades.id"), index=True)
-    telefono        = Column(String)
-    email           = Column(String)
+    # PII del profesional cifrado at-rest
+    telefono        = Column(EncryptedStr)
+    email           = Column(EncryptedStr)
     matricula           = Column(String)
     google_calendar_id  = Column(String)   # email del Google Calendar (ej. dr@gmail.com)
     ical_token          = Column(String)   # token para feed público .ics (URL firmada)
@@ -93,7 +96,32 @@ class User(Base):
     role          = Column(String, nullable=False, default="medico")  # "admin" o "medico"
     medico_id     = Column(Integer, ForeignKey("medicos.id"), nullable=True)
     must_change_password = Column(Boolean, nullable=False, default=False)
+    # 2FA TOTP (opcional). El secret queda cifrado. Activar requiere validar un código.
+    totp_secret     = Column(EncryptedStr)
+    totp_enabled    = Column(Boolean, nullable=False, default=False)
     medico        = relationship("Medico")
+
+
+class RefreshToken(Base):
+    """
+    Token de larga duración (30 días) que permite obtener nuevos access_tokens
+    sin re-login. Rotamos en cada uso (detección de reuso → revocar familia).
+
+    Se guarda hash SHA-256 del token, nunca el token en claro. Cada refresh
+    genera un token nuevo y revoca el anterior (one-time use).
+    """
+    __tablename__ = "refresh_tokens"
+    id            = Column(Integer, primary_key=True, index=True)
+    user_id       = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash    = Column(String, unique=True, nullable=False, index=True)
+    issued_at     = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at    = Column(DateTime, nullable=False, index=True)
+    revoked_at    = Column(DateTime)                       # None si sigue activo
+    replaced_by   = Column(Integer, ForeignKey("refresh_tokens.id"))   # detección de reuso
+    user_agent    = Column(String)
+    ip            = Column(String)
+
+    user          = relationship("User")
 
 
 class AuditLog(Base):

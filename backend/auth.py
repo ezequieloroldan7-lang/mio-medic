@@ -136,3 +136,41 @@ def validate_password_strength(pw: str) -> None:
             400,
             f"La contraseña debe tener al menos {MIN_PASSWORD_LEN} caracteres.",
         )
+
+
+# ── 2FA TOTP ────────────────────────────────────────────────
+def generate_totp_secret() -> str:
+    """Genera un secret TOTP base32 de 160 bits (RFC 6238 recomendado)."""
+    import pyotp
+    return pyotp.random_base32()
+
+
+def totp_provisioning_uri(secret: str, username: str, issuer: str = "MIO MEDIC") -> str:
+    """URI otpauth:// para generar el QR que se escanea en la app del usuario."""
+    import pyotp
+    return pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name=issuer)
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    """Verifica un código de 6 dígitos con drift ±1 paso (30s c/u)."""
+    import pyotp
+    if not secret or not code:
+        return False
+    code = code.strip().replace(" ", "")
+    if not code.isdigit():
+        return False
+    return pyotp.TOTP(secret).verify(code, valid_window=1)
+
+
+# ── Refresh tokens ──────────────────────────────────────────
+REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "30"))
+
+
+def generate_refresh_token() -> str:
+    """Token opaco de 48 bytes para el refresh (lo guardamos hasheado)."""
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    """SHA-256 del refresh token — lo que se almacena en la BD."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

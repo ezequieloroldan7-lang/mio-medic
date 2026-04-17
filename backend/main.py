@@ -115,6 +115,17 @@ def _migrate_db():
                     "ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0"
                 ))
             log.info("Migración: agregada columna users.must_change_password")
+        # v2.2: 2FA TOTP opcional por usuario
+        if "totp_secret" not in user_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret TEXT"))
+            log.info("Migración: agregada columna users.totp_secret")
+        if "totp_enabled" not in user_cols:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT 0"
+                ))
+            log.info("Migración: agregada columna users.totp_enabled")
     if "medicos" in insp.get_table_names():
         med_cols = [c["name"] for c in insp.get_columns("medicos")]
         if "ical_token" not in med_cols:
@@ -122,8 +133,22 @@ def _migrate_db():
                 conn.execute(text("ALTER TABLE medicos ADD COLUMN ical_token TEXT"))
             log.info("Migración: agregada columna medicos.ical_token")
 
-    # audit_log se crea automáticamente vía Base.metadata.create_all cuando
-    # el modelo está definido; nada que migrar si ya existe.
+    # audit_log y refresh_tokens se crean automáticamente vía
+    # Base.metadata.create_all cuando los modelos están definidos.
+
+    # v2.2: re-cifrado opcional de filas legacy (telefono/email/totp_secret).
+    # Activar con REENCRYPT_ON_START=1 — es O(n) por tabla y commitea.
+    if os.getenv("REENCRYPT_ON_START", "0") == "1":
+        from crypto import reencrypt_existing
+        db = SessionLocal()
+        try:
+            stats = reencrypt_existing(db, models)
+            log.info("Re-cifrado legacy completado: %s", stats)
+        except Exception as e:  # noqa: BLE001
+            db.rollback()
+            log.error("Error en re-cifrado legacy: %s", e)
+        finally:
+            db.close()
 
     # Eliminar medicos de prueba (dejar solo Garrido)
     db = SessionLocal()

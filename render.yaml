@@ -15,6 +15,15 @@ services:
       # primer arranque y debe cambiarse en el primer login.
       - key: INITIAL_ADMIN_PASSWORD
         generateValue: true
+      # Clave independiente para cifrado at-rest de PII (telefono, email,
+      # totp_secret). Se genera una vez y se persiste en Render; rotarla
+      # requiere re-cifrar los datos con la clave vieja antes.
+      - key: FIELD_ENCRYPTION_KEY
+        generateValue: true
+      # Duración del refresh token (días). 30 es un buen default para una app
+      # interna con rotación+detección de reuso.
+      - key: REFRESH_TOKEN_DAYS
+        value: "30"
       # Lista blanca de orígenes CORS. Por default el frontend se sirve desde
       # el mismo dominio que el backend, así que alcanza con dejar vacío.
       # Si hubiera un frontend en otro dominio, listarlo separado por comas.

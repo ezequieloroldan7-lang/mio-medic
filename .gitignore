@@ -4,6 +4,8 @@ google-credentials
 google-credentials.json
 .secret_key
 backend/.secret_key
+.field_key
+backend/.field_key
 
 # Base de datos
 *.db

@@ -62,7 +62,13 @@ function toast(msg, type="info") {
   el.addEventListener("mouseleave", () => { timer = setTimeout(dismiss, 2000); });
   $("toast-container").appendChild(el);
 }
-function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); sessionStorage.clear(); window.location.href="/login"; }
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
+  sessionStorage.clear();
+  window.location.href="/login";
+}
 
 /* ── Breadcrumb contextual en modales ────────────────────── */
 const _VIEW_LABELS = {
@@ -131,13 +137,48 @@ function validateRequired(fields) {
 document.addEventListener("input",  e => { if (e.target.classList && e.target.classList.contains("has-error")) clearFieldError(e.target); }, true);
 document.addEventListener("change", e => { if (e.target.classList && e.target.classList.contains("has-error")) clearFieldError(e.target); }, true);
 
+// Refresh coalescido: si hay varias requests en vuelo y todas dan 401, solo
+// llamamos a /auth/refresh una vez y el resto espera la misma promise.
+let _refreshInFlight = null;
+async function _tryRefresh() {
+  if (_refreshInFlight) return _refreshInFlight;
+  const rt = localStorage.getItem("refresh_token");
+  if (!rt) return null;
+  _refreshInFlight = (async () => {
+    try {
+      const res = await fetch(API + "/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.access_token) localStorage.setItem("token", data.access_token);
+      if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
+      return data.access_token || null;
+    } catch { return null; }
+    finally { setTimeout(() => { _refreshInFlight = null; }, 0); }
+  })();
+  return _refreshInFlight;
+}
+
 async function api(path, opts={}) {
   const url = API + path;
-  const token = localStorage.getItem("token");
-  const headers = {"Content-Type":"application/json"};
-  if (token) headers["Authorization"] = "Bearer " + token;
-  const res = await fetch(url, { headers, cache: "no-store", ...opts });
-  if(res.status===401){ logout(); return; }
+  const _doFetch = (tok) => {
+    const headers = {"Content-Type":"application/json"};
+    if (tok) headers["Authorization"] = "Bearer " + tok;
+    return fetch(url, { headers, cache: "no-store", ...opts });
+  };
+  let token = localStorage.getItem("token");
+  let res = await _doFetch(token);
+  if (res.status === 401) {
+    // Intentamos refrescar el access_token una sola vez y reintentamos.
+    const fresh = await _tryRefresh();
+    if (fresh) {
+      res = await _doFetch(fresh);
+    }
+    if (res.status === 401) { logout(); return; }
+  }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||"Error en el servidor");}
   if(res.status===204)return null; return res.json();
 }
@@ -250,6 +291,7 @@ function navTo(view) {
   if(view==="view-turnos")        renderTurnos();
   if(view==="view-dashboard")     renderDashboard();
   if(view==="view-profesionales") renderProfesionales();
+  if(view==="view-audit")         renderAudit();
 }
 document.querySelectorAll(".nav-item[data-view]").forEach(el=>el.addEventListener("click",()=>navTo(el.dataset.view)));
 $("menu-toggle").addEventListener("click",()=>{
@@ -305,6 +347,7 @@ async function init() {
   // Si es medico, ocultar secciones que no corresponden
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
+    document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
   }
 
   [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
@@ -1062,6 +1105,7 @@ document.addEventListener("keydown", e=>{
   if (e.key === "3") navTo("view-turnos");
   if (e.key === "4") navTo("view-pacientes");
   if (e.key === "5") navTo("view-profesionales");
+  if (e.key === "6" && currentUser && currentUser.role === "admin") navTo("view-audit");
   if (e.key.toLowerCase() === "n") {
     if (document.querySelector("#view-agenda.active"))        abrirNuevoTurno();
     else if (document.querySelector("#view-pacientes.active")) abrirNuevoPaciente();
@@ -1151,6 +1195,135 @@ async function guardarPassword() {
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m){m.classList.remove("open"); clearFormErrors(m.id);}}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
+
+/* ── Auditoría (admin) ─────────────────────────────────── */
+function _fmtAuditTs(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("es-AR") + " " + d.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  } catch { return iso; }
+}
+function _fmtAuditDetails(txt) {
+  if (!txt) return "";
+  try {
+    const o = JSON.parse(txt);
+    return Object.entries(o).map(([k,v]) => `${esc(k)}=${esc(typeof v==="object"?JSON.stringify(v):String(v))}`).join(" · ");
+  } catch { return esc(txt); }
+}
+async function renderAudit() {
+  const cont = $("audit-lista");
+  if (!cont) return;
+  cont.innerHTML = `<div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>`;
+  const q = new URLSearchParams();
+  const action = $("audit-f-action")?.value.trim();
+  const username = $("audit-f-username")?.value.trim();
+  const entity = $("audit-f-entity-type")?.value.trim();
+  const limit = parseInt($("audit-f-limit")?.value || "200", 10);
+  if (action)   q.set("action", action);
+  if (username) q.set("username", username);
+  if (entity)   q.set("entity_type", entity);
+  if (limit)    q.set("limit", String(Math.max(1, Math.min(limit, 1000))));
+  let rows = [];
+  try {
+    rows = await api("/auth/audit?" + q.toString()) || [];
+  } catch (e) {
+    cont.innerHTML = `<div style="padding:1rem;color:#c0392b">Error cargando auditoría: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (!rows.length) {
+    cont.innerHTML = `<div style="padding:1rem;color:var(--muted)">Sin eventos.</div>`;
+    return;
+  }
+  cont.innerHTML = `
+    <table class="tbl">
+      <thead><tr>
+        <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>IP</th><th>Detalles</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td style="white-space:nowrap;font-size:.8rem">${esc(_fmtAuditTs(r.timestamp))}</td>
+          <td style="font-size:.82rem">${esc(r.username || "—")}</td>
+          <td style="font-size:.82rem;font-family:monospace">${esc(r.action)}</td>
+          <td style="font-size:.8rem">${esc([r.entity_type, r.entity_id].filter(Boolean).join(" #"))}</td>
+          <td style="font-size:.78rem;color:var(--muted)">${esc(r.ip || "")}</td>
+          <td style="font-size:.78rem;color:#555">${_fmtAuditDetails(r.details)}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+$("btn-audit-refresh")?.addEventListener("click", renderAudit);
+["audit-f-action","audit-f-username","audit-f-entity-type","audit-f-limit"].forEach(id => {
+  $(id)?.addEventListener("change", renderAudit);
+});
+
+/* ── 2FA ───────────────────────────────────────────────── */
+async function abrir2FA() {
+  $("modal-2fa").classList.add("open");
+  $("tfa-setup-block").style.display = "none";
+  $("tfa-disable-block").style.display = "none";
+  $("tfa-start-block").style.display = "none";
+  $("tfa-status-block").textContent = "Cargando…";
+  try {
+    const st = await api("/auth/2fa/status");
+    if (st && st.enabled) {
+      $("tfa-status-block").innerHTML = `<span style="color:#2d7a4f;font-weight:600">✓ 2FA activo</span>`;
+      $("tfa-disable-block").style.display = "block";
+      $("tfa-disable-pw").value = "";
+    } else {
+      $("tfa-status-block").innerHTML = `<span style="color:var(--muted)">2FA inactivo</span>`;
+      $("tfa-start-block").style.display = "block";
+    }
+  } catch (e) {
+    $("tfa-status-block").innerHTML = `<span style="color:#c0392b">Error: ${esc(e.message)}</span>`;
+  }
+}
+
+async function iniciar2FA() {
+  try {
+    const r = await api("/auth/2fa/setup", { method: "POST" });
+    $("tfa-start-block").style.display = "none";
+    $("tfa-setup-block").style.display = "block";
+    // Mostramos el secret para entrada manual en la app TOTP. Evitamos generar
+    // un QR con servicios externos para no filtrar el secreto a terceros; la
+    // CSP tampoco permite scripts externos así que la alternativa segura es
+    // entrada manual (copiar la clave) + link otpauth:// para mobile.
+    $("tfa-secret-line").textContent = r.secret;
+    const link = $("tfa-otpauth-link");
+    link.href = r.otpauth_uri;
+    link.textContent = r.otpauth_uri;
+    const copyBtn = $("tfa-copy-btn");
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try { await navigator.clipboard.writeText(r.secret); toast("Clave copiada", "success"); }
+        catch { toast("No se pudo copiar automáticamente", "warning"); }
+      };
+    }
+    $("tfa-activate-code").value = "";
+    $("tfa-activate-code").focus();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function activar2FA() {
+  const code = $("tfa-activate-code").value.trim();
+  if (!/^\d{6}$/.test(code)) { toast("Ingresá los 6 dígitos del código.", "warning"); return; }
+  try {
+    await api("/auth/2fa/activate", { method: "POST", body: JSON.stringify({ code }) });
+    toast("2FA activado ✓", "success");
+    cerrarModal("modal-2fa");
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function desactivar2FA() {
+  const password = $("tfa-disable-pw").value;
+  if (!password) { toast("Ingresá tu contraseña.", "warning"); return; }
+  if (!confirm("¿Desactivar 2FA? Tu cuenta volverá a requerir solo contraseña.")) return;
+  try {
+    await api("/auth/2fa/disable", { method: "POST", body: JSON.stringify({ password }) });
+    toast("2FA desactivado", "success");
+    cerrarModal("modal-2fa");
+  } catch (e) { toast(e.message, "error"); }
+}
 
 init().then(() => {
   if (!localStorage.getItem("tutorial_done")) tutorialStart();
