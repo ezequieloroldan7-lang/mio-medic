@@ -1283,6 +1283,18 @@ async function mostrarCamposPacienteNuevo() {
   fields.classList.add("open");
   $("btn-agregar-paciente").textContent = "Guardar paciente";
   $("btn-agregar-paciente").onclick = agregarPacienteDesdeTurno;
+  // Prellenar nombre/apellido desde lo tipeado (convención: "APELLIDO NOMBRE").
+  // La secretaria puede corregir si se confundió el orden antes de guardar.
+  const tipeado = ($("turno-paciente-input").value || "").trim().toUpperCase();
+  if (tipeado) {
+    const partes = tipeado.split(/\s+/);
+    if ($("turno-new-apellido") && !$("turno-new-apellido").value) {
+      $("turno-new-apellido").value = partes.shift() || "";
+    }
+    if ($("turno-new-nombre") && !$("turno-new-nombre").value) {
+      $("turno-new-nombre").value = partes.join(" ") || "";
+    }
+  }
   // Auto-generar HC
   try {
     const res = await api("/pacientes/next-hc");
@@ -1290,29 +1302,30 @@ async function mostrarCamposPacienteNuevo() {
   } catch(e) { $("turno-new-hc").value = ""; }
   // Ocultar info de paciente existente
   if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
+  // Foco en el que quedó vacío (o Nombre por default)
+  (($("turno-new-apellido")?.value ? $("turno-new-nombre") : $("turno-new-apellido")) || {}).focus?.();
 }
 
 async function agregarPacienteDesdeTurno() {
-  const nombre_completo = $("turno-paciente-input").value.trim();
-  if (!nombre_completo) { toast("Escribi el nombre del paciente","error"); return; }
+  const nombre = ($("turno-new-nombre")?.value || "").trim().toUpperCase();
+  const apellido = ($("turno-new-apellido")?.value || "").trim().toUpperCase();
+  if (!nombre || !apellido) { toast("Nombre y Apellido son obligatorios","error"); return; }
   const tel = $("turno-new-tel").value.trim();
   const email = $("turno-new-email").value.trim();
   const dni = $("turno-new-dni").value.trim();
   if (!tel || !email) { toast("Teléfono y Email son obligatorios para pacientes nuevos","error"); return; }
-  const partes = nombre_completo.toUpperCase().split(/\s+/);
-  const apellido = partes[0] || "";
-  const nombre = partes.slice(1).join(" ") || "";
   const financiador = $("turno-financiador").value.trim().toUpperCase() || null;
   const plan = $("turno-plan").value.trim().toUpperCase() || null;
   const nro_hc = $("turno-new-hc").value.trim() || null;
+  const deriva = ($("turno-new-deriva")?.value || "").trim().toUpperCase() || null;
   try {
     const nuevo = await api("/pacientes",{method:"POST",body:JSON.stringify({
-      nombre: nombre || apellido,
+      nombre,
       apellido,
       dni: dni || null,
       telefono: tel,
       email: email.toLowerCase(),
-      nro_hc, financiador, plan,
+      nro_hc, financiador, plan, deriva,
     })});
     pacientes.push(nuevo);
     $("turno-paciente-id").value = nuevo.id;
@@ -1346,10 +1359,13 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   _resetBotonAgregarPaciente();
   if($("turno-pac-info")) $("turno-pac-info").style.display="none";
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
+  if($("turno-new-nombre")) $("turno-new-nombre").value="";
+  if($("turno-new-apellido")) $("turno-new-apellido").value="";
   if($("turno-new-dni")) $("turno-new-dni").value="";
   if($("turno-new-tel")) $("turno-new-tel").value="";
   if($("turno-new-email")) $("turno-new-email").value="";
   if($("turno-new-hc")) $("turno-new-hc").value="";
+  if($("turno-new-deriva")) $("turno-new-deriva").value="";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   // Preseleccionar medico si es profesional
   if (currentUser && currentUser.role==="medico" && currentUser.medico_id) $("turno-medico").value=currentUser.medico_id;
@@ -1366,10 +1382,13 @@ async function abrirEditarTurno(id) {
   $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
   _resetBotonAgregarPaciente();
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
+  if($("turno-new-nombre")) $("turno-new-nombre").value="";
+  if($("turno-new-apellido")) $("turno-new-apellido").value="";
   if($("turno-new-dni")) $("turno-new-dni").value="";
   if($("turno-new-tel")) $("turno-new-tel").value="";
   if($("turno-new-email")) $("turno-new-email").value="";
   if($("turno-new-hc")) $("turno-new-hc").value="";
+  if($("turno-new-deriva")) $("turno-new-deriva").value="";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   // Mostrar info del paciente
   const p=t.paciente;
