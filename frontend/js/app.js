@@ -762,7 +762,13 @@ function renderColumna(consultorio, turnos, fecha, bloqueos = []) {
     chip.style.top = `calc(${idx} * var(--slot-h) + 3px)`;
     chip.style.height = `calc(${spans} * var(--slot-h) - 6px)`;
     chip.innerHTML = chipInnerHTML(t);
-    chip.addEventListener("click", e => { e.stopPropagation(); abrirEditarTurno(t.id); });
+    chip.addEventListener("click", e => {
+      // Si se clickeó un botón de acción dentro del chip, dejar que la
+      // delegación de document lo maneje — no abrir el modal completo.
+      if (e.target.closest("[data-action]")) return;
+      e.stopPropagation();
+      abrirEditarTurno(t.id);
+    });
     grid.appendChild(chip);
   }
 }
@@ -794,7 +800,12 @@ function chipInnerHTML(t) {
     <span class="chip-nombre">${esc(t.paciente?.nombre)} ${esc(t.paciente?.apellido)}</span>
     <span class="chip-hc">${hc}${hc ? " · " : ""}${hIni}–${hFin}</span>
     <span class="chip-esp">${prof}${prof && esp ? " · " : ""}${esp}</span>
-    ${obs}`;
+    ${obs}
+    <span class="chip-actions">
+      <button class="chip-btn chip-btn-edit" data-action="editar-turno" data-id="${t.id}">Editar</button>
+      <button class="chip-btn chip-btn-cancel" data-action="cancelar-turno" data-id="${t.id}">Cancelar</button>
+      <button class="chip-btn chip-btn-delete" data-action="eliminar-turno" data-id="${t.id}">Eliminar</button>
+    </span>`;
 }
 
 $("agenda-fecha").addEventListener("change",renderAgenda);
