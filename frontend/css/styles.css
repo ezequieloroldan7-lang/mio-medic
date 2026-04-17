@@ -721,6 +721,10 @@ tr:hover td { background: #fbf8f4; }
   .table-wrap { margin: 0 -.85rem; padding: 0 .85rem; }
   .search-bar input { max-width: 100%; flex: 1; }
 
+  /* Paciente cards: nombre full-width y botones en fila propia */
+  .pac-card .dash-turno-paciente { flex: 1 1 100%; }
+  .pac-card .pac-actions { flex: 0 0 100%; justify-content: flex-end; }
+
   /* Forms */
   .form-grid { grid-template-columns: 1fr; }
 

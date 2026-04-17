@@ -632,10 +632,10 @@ async function renderPacientes(q) {
           if (p.email) info.push(esc(p.email));
           if (p.financiador) info.push(p.financiador + (p.plan ? " — " + p.plan : ""));
           const infoStr = info.length ? `<span style="font-size:.78rem;color:var(--muted);display:inline-flex;gap:.6rem;flex-wrap:wrap">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
-          return `<div class="dash-turno-card" style="align-items:center;flex-wrap:nowrap">
-            <span class="dash-turno-paciente" style="flex:0 0 auto;font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+          return `<div class="dash-turno-card pac-card" style="align-items:center">
+            <span class="dash-turno-paciente" style="font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
             ${infoStr}
-            <span style="margin-left:auto;display:flex;gap:.25rem;flex-shrink:0">
+            <span class="pac-actions" style="margin-left:auto;display:flex;gap:.35rem;flex-shrink:0">
               <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
               <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
               <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
