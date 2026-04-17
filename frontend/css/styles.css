@@ -92,6 +92,7 @@ body {
   font-size: .68rem; font-weight: 400;
   color: var(--muted);
   letter-spacing: .3px; text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
 }
 .menu-toggle {
   display: none; background: none; border: none;
@@ -269,7 +270,7 @@ body {
   border-bottom: 1px solid var(--border-lt);
   height: var(--slot-h);
   cursor: pointer;
-  transition: background .12s;
+  transition: background .15s;
 }
 .time-slot:hover { background: var(--accent); }
 .time-slot.slot-exacta { background: #fcfaf7; }
@@ -296,7 +297,7 @@ body {
   cursor: pointer;
   display: flex; flex-direction: column;
   justify-content: center; gap: .1rem;
-  transition: transform .12s, box-shadow .12s, filter .12s;
+  transition: transform .15s, box-shadow .15s, filter .15s;
   border-left: 3px solid;
   overflow: hidden;
   z-index: 2;
@@ -336,7 +337,7 @@ body {
   background: var(--white); border: 1px solid var(--border);
   color: var(--text-soft);
 }
-.btn-outline:hover { background: var(--accent); border-color: var(--primary-lt); color: var(--text); }
+.btn-outline:hover { background: var(--accent); border-color: var(--primary-lt); color: var(--text); box-shadow: 0 2px 6px rgba(80,55,40,.08); }
 .btn-ghost {
   background: transparent; color: var(--muted); border: none;
 }
@@ -392,7 +393,7 @@ th {
 }
 th.sortable {
   cursor: pointer; user-select: none;
-  transition: background .12s, color .12s;
+  transition: background .15s, color .15s;
 }
 th.sortable:hover { background: var(--accent-dk); color: var(--text); }
 th.sortable .sort-arrow { opacity: .35; margin-left: .25rem; font-size: .72rem; }
@@ -452,7 +453,7 @@ tr:hover td { background: #fbf8f4; }
   border: 1px solid var(--border-lt);
   box-shadow: var(--shadow-xs);
   padding: 1.5rem;
-  transition: transform .2s, box-shadow .2s, border-color .2s;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
   display: flex; flex-direction: column;
   gap: 1.1rem;
   position: relative;
@@ -551,7 +552,7 @@ tr:hover td { background: #fbf8f4; }
 /* ── Modal ──────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(43,36,30,.45);
+  background: rgba(43,36,30,.35);
   display: none; align-items: center; justify-content: center;
   z-index: 200; padding: 1rem;
   backdrop-filter: blur(3px);
@@ -595,7 +596,7 @@ tr:hover td { background: #fbf8f4; }
   cursor: pointer; color: var(--muted);
   width: 30px; height: 30px; border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
-  transition: background .12s, color .12s;
+  transition: background .15s, color .15s;
 }
 .modal-close:hover { background: var(--accent); color: var(--text); }
 .modal-body  { padding: 1.5rem; }
