@@ -2,10 +2,11 @@
 security_headers.py — Middleware que agrega cabeceras de seguridad a todas las
 respuestas.
 
-CSP: elegimos una política realista dado que el frontend usa `onclick=` inline
-y `style=` inline (refactor a addEventListener quedaría para otro sprint). Aun
-con 'unsafe-inline' seguimos bloqueando scripts externos no permitidos e
-iframes, que es la protección principal contra XSS vía terceros y clickjacking.
+CSP: script-src sin 'unsafe-inline' (CSP strict para JS). El frontend ya no
+tiene `onclick=` inline ni `<script>` inline; todo el JS se sirve desde
+/static/js/. style-src todavía permite 'unsafe-inline' porque quedan
+`style=` en templates — migrarlo queda para otro sprint, pero el impacto
+de un XSS vía CSS es mucho menor que vía JS.
 
 HSTS: solo se setea si la request llegó por HTTPS (no queremos romper local
 http://).
@@ -17,7 +18,7 @@ from starlette.responses import Response
 
 _CSP = "; ".join([
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob:",
