@@ -200,6 +200,24 @@ def _migrate_db():
     finally:
         db.close()
 
+    # Limpieza one-time: quitar prefijos "Dr/a.", "Dra.", "Dr." persistidos en
+    # users.display_name. Se introdujeron antes de cambiar la política a
+    # "solo nombre completo". Idempotente: solo toca filas que aún tienen el prefijo.
+    if "users" in insp.get_table_names():
+        try:
+            with engine.begin() as conn:
+                for prefijo in ("Dr/a. ", "Dr/a ", "Dra. ", "Dra ", "Dr. ", "Dr "):
+                    conn.execute(
+                        text(
+                            "UPDATE users SET display_name = SUBSTR(display_name, :n) "
+                            "WHERE display_name LIKE :pat"
+                        ),
+                        {"n": len(prefijo) + 1, "pat": f"{prefijo}%"},
+                    )
+            log.info("Migración: prefijos Dr/a./Dra./Dr. eliminados de users.display_name (si existían).")
+        except Exception as e:  # noqa: BLE001
+            log.error("Error limpiando prefijos en users.display_name: %s", e)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
