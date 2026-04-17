@@ -410,6 +410,7 @@ document.addEventListener("click", (e) => {
   const id = el.dataset.id ? parseInt(el.dataset.id, 10) : null;
   switch (action) {
     case "editar-turno":         abrirEditarTurno(id); break;
+    case "cambiar-estado-turno": abrirCambiarEstado(id); break;
     case "cancelar-turno":       cancelarTurno(id); break;
     case "eliminar-turno":       eliminarTurno(id); break;
     case "nuevo-turno-paciente": abrirNuevoTurnoPaciente(id); break;
@@ -425,6 +426,7 @@ document.addEventListener("click", (e) => {
   }
 });
 $("btn-save-turno")?.addEventListener("click", () => guardarTurno());
+$("btn-save-estado")?.addEventListener("click", () => guardarEstadoTurno());
 $("btn-save-paciente")?.addEventListener("click", () => guardarPaciente());
 $("btn-save-medico")?.addEventListener("click", () => guardarMedico());
 $("btn-save-horario")?.addEventListener("click", () => guardarHorario());
@@ -590,14 +592,14 @@ async function renderDashboard() {
           if (p?.telefono) info.push(esc(p.telefono));
           if (p?.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
           const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>` : "";
-          return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
+          return `<div class="dash-turno-card" data-action="cambiar-estado-turno" data-id="${t.id}">
 
             <span class="dash-turno-hora">${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
             <span class="dash-turno-paciente">${esc(p?.nombre)} ${esc(p?.apellido)}</span>
             <span class="dash-turno-consultorio">C${t.consultorio}</span>
             <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)}</span>
             <span class="badge badge-${t.estado}">${t.estado}</span>
-            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline" data-action="editar-turno" data-id="${t.id}">Editar</button></span>
+            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline" data-action="cambiar-estado-turno" data-id="${t.id}">Editar</button></span>
             ${infoHtml}
             ${obs}
           </div>`;
@@ -1437,6 +1439,37 @@ async function abrirEditarTurno(id) {
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
   $("modal-turno").classList.add("open");
 }
+let estadoEditing = null;
+async function abrirCambiarEstado(id) {
+  try {
+    const t = await api(`/turnos/${id}`);
+    estadoEditing = id;
+    const p = t.paciente || {};
+    const hora = fmtHoraDisplay(t.fecha_hora_inicio);
+    $("modal-estado-info").textContent =
+      `${hora} · ${p.nombre||""} ${p.apellido||""} · C${t.consultorio}`;
+    $("estado-turno-select").value = t.estado;
+    $("modal-estado").classList.add("open");
+  } catch(e) { toast("Error al cargar turno: "+e.message,"error"); }
+}
+async function guardarEstadoTurno() {
+  if (!estadoEditing) return;
+  const nuevo = $("estado-turno-select").value;
+  await _withSubmitLock("modal-estado", async () => {
+    try {
+      await api(`/turnos/${estadoEditing}`, {
+        method:"PUT", body: JSON.stringify({ estado: nuevo })
+      });
+      toast("Estado actualizado ✓","success");
+      cerrarModal("modal-estado");
+      estadoEditing = null;
+      renderDashboard();
+      if ($("view-turnos")?.classList.contains("active")) renderTurnos();
+      if ($("view-agenda")?.classList.contains("active")) renderAgenda();
+    } catch(e) { toast(e.message,"error"); }
+  });
+}
+
 function abrirNuevoTurnoPaciente(pacienteId) {
   abrirNuevoTurno();
   const p=pacientes.find(x=>x.id===pacienteId);
