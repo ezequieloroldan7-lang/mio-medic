@@ -62,7 +62,13 @@ function toast(msg, type="info") {
   el.addEventListener("mouseleave", () => { timer = setTimeout(dismiss, 2000); });
   $("toast-container").appendChild(el);
 }
-function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); sessionStorage.clear(); window.location.href="/login"; }
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
+  sessionStorage.clear();
+  window.location.href="/login";
+}
 
 /* ── Breadcrumb contextual en modales ────────────────────── */
 const _VIEW_LABELS = {
@@ -131,13 +137,48 @@ function validateRequired(fields) {
 document.addEventListener("input",  e => { if (e.target.classList && e.target.classList.contains("has-error")) clearFieldError(e.target); }, true);
 document.addEventListener("change", e => { if (e.target.classList && e.target.classList.contains("has-error")) clearFieldError(e.target); }, true);
 
+// Refresh coalescido: si hay varias requests en vuelo y todas dan 401, solo
+// llamamos a /auth/refresh una vez y el resto espera la misma promise.
+let _refreshInFlight = null;
+async function _tryRefresh() {
+  if (_refreshInFlight) return _refreshInFlight;
+  const rt = localStorage.getItem("refresh_token");
+  if (!rt) return null;
+  _refreshInFlight = (async () => {
+    try {
+      const res = await fetch(API + "/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.access_token) localStorage.setItem("token", data.access_token);
+      if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
+      return data.access_token || null;
+    } catch { return null; }
+    finally { setTimeout(() => { _refreshInFlight = null; }, 0); }
+  })();
+  return _refreshInFlight;
+}
+
 async function api(path, opts={}) {
   const url = API + path;
-  const token = localStorage.getItem("token");
-  const headers = {"Content-Type":"application/json"};
-  if (token) headers["Authorization"] = "Bearer " + token;
-  const res = await fetch(url, { headers, cache: "no-store", ...opts });
-  if(res.status===401){ logout(); return; }
+  const _doFetch = (tok) => {
+    const headers = {"Content-Type":"application/json"};
+    if (tok) headers["Authorization"] = "Bearer " + tok;
+    return fetch(url, { headers, cache: "no-store", ...opts });
+  };
+  let token = localStorage.getItem("token");
+  let res = await _doFetch(token);
+  if (res.status === 401) {
+    // Intentamos refrescar el access_token una sola vez y reintentamos.
+    const fresh = await _tryRefresh();
+    if (fresh) {
+      res = await _doFetch(fresh);
+    }
+    if (res.status === 401) { logout(); return; }
+  }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||"Error en el servidor");}
   if(res.status===204)return null; return res.json();
 }
@@ -250,6 +291,7 @@ function navTo(view) {
   if(view==="view-turnos")        renderTurnos();
   if(view==="view-dashboard")     renderDashboard();
   if(view==="view-profesionales") renderProfesionales();
+  if(view==="view-audit")         renderAudit();
 }
 document.querySelectorAll(".nav-item[data-view]").forEach(el=>el.addEventListener("click",()=>navTo(el.dataset.view)));
 $("menu-toggle").addEventListener("click",()=>{
@@ -287,9 +329,25 @@ async function init() {
     if ($("sidebar-user-name")) $("sidebar-user-name").textContent = currentUser.display_name;
   }
 
+  // Revalidar flag must_change_password desde backend (puede haber cambiado tras reset)
+  try {
+    const me = await api("/auth/me");
+    if (me && currentUser) {
+      currentUser.must_change_password = !!me.must_change_password;
+      localStorage.setItem("user", JSON.stringify(currentUser));
+    }
+    if (me && me.must_change_password) {
+      _forceChangePassword();
+      return; // no cargamos el resto hasta que cambie la clave
+    }
+  } catch (e) {
+    // 401 → /api interceptor hace logout; cualquier otro error no bloquea init
+  }
+
   // Si es medico, ocultar secciones que no corresponden
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>el.style.display="none");
+    document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
   }
 
   [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);
@@ -548,13 +606,32 @@ $("filtro-fecha")?.addEventListener("change",()=>renderTurnos());
 $("filtro-buscar-turno")?.addEventListener("input",e=>renderTurnos(e.target.value));
 
 /* ── Exportar CSV ───────────────────────────────────────── */
-function exportarTurnosCSV() {
+async function exportarTurnosCSV() {
   const desde = prompt("Desde (YYYY-MM-DD). Dejar vacío para últimos 30 días:") || "";
   const hasta = prompt("Hasta (YYYY-MM-DD). Dejar vacío para hoy:") || "";
   const qs = [];
   if (desde) qs.push("desde=" + encodeURIComponent(desde));
   if (hasta) qs.push("hasta=" + encodeURIComponent(hasta));
-  window.open("/turnos/export.csv" + (qs.length?("?"+qs.join("&")):""), "_blank");
+  const url = "/turnos/export.csv" + (qs.length ? ("?" + qs.join("&")) : "");
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(url, {
+      headers: token ? { Authorization: "Bearer " + token } : {},
+    });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok) throw new Error("Error " + res.status);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    const blobUrl = URL.createObjectURL(blob);
+    a.href = blobUrl;
+    a.download = `turnos_${desde || "ultimos30"}_${hasta || "hoy"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch (e) {
+    toast("No se pudo exportar: " + e.message, "error");
+  }
 }
 window.exportarTurnosCSV = exportarTurnosCSV;
 
@@ -715,14 +792,22 @@ function renderHorariosPills(horarios, medicoId) {
 }
 
 /* ── Link Calendario iCal ────────────────────────────────── */
-function copiarLinkCalendario(medicoId) {
-  const url = `${location.origin}/medicos/${medicoId}/calendario.ics`;
-  navigator.clipboard.writeText(url).then(() => {
-    toast("Link del calendario copiado al portapapeles. Pegalo en Google Calendar → Otros calendarios → Desde URL.", "success");
-  }).catch(() => {
-    // Fallback si clipboard no disponible (http sin https)
-    prompt("Copiá este link y pegalo en Google Calendar → Otros calendarios → Desde URL:", url);
-  });
+async function copiarLinkCalendario(medicoId, regenerate = false) {
+  let url;
+  try {
+    const qs = regenerate ? "?regenerate=true" : "";
+    const res = await api(`/medicos/${medicoId}/calendario-url${qs}`);
+    url = `${location.origin}${res.path}`;
+  } catch (e) {
+    toast("No se pudo generar el link: " + e.message, "error");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link del calendario copiado. Pegalo en Google Calendar → Otros calendarios → Desde URL. No compartas este link.", "success");
+  } catch {
+    prompt("Copiá este link (contiene un token privado, no lo compartas):", url);
+  }
 }
 window.copiarLinkCalendario = copiarLinkCalendario;
 
@@ -1020,6 +1105,7 @@ document.addEventListener("keydown", e=>{
   if (e.key === "3") navTo("view-turnos");
   if (e.key === "4") navTo("view-pacientes");
   if (e.key === "5") navTo("view-profesionales");
+  if (e.key === "6" && currentUser && currentUser.role === "admin") navTo("view-audit");
   if (e.key.toLowerCase() === "n") {
     if (document.querySelector("#view-agenda.active"))        abrirNuevoTurno();
     else if (document.querySelector("#view-pacientes.active")) abrirNuevoPaciente();
@@ -1028,19 +1114,58 @@ document.addEventListener("keydown", e=>{
 });
 
 /* ── Helpers ─────────────────────────────────────────────── */
-function cerrarModal(id){$(id).classList.remove("open"); clearFormErrors(id);}
+let _pwForced = false;
+function cerrarModal(id){
+  if (id === "modal-password" && _pwForced) {
+    toast("Debes cambiar tu contraseña antes de continuar.","error");
+    return;
+  }
+  $(id).classList.remove("open"); clearFormErrors(id);
+}
 
 /* ── Cambiar contraseña ───────────────────────────────────── */
 function abrirCambiarPassword() {
   $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
   setModalTitle("modal-password-titulo","Cambiar contraseña","Mi cuenta");
+  _setPasswordModalForced(false);
   $("modal-password").classList.add("open");
 }
+
+function _setPasswordModalForced(forced) {
+  _pwForced = !!forced;
+  const modal = $("modal-password");
+  if (!modal) return;
+  const closeBtn = modal.querySelector(".modal-close");
+  const footer = modal.querySelector(".modal-footer");
+  if (closeBtn) closeBtn.style.display = forced ? "none" : "";
+  if (footer) {
+    const cancelBtn = footer.querySelector(".btn-outline");
+    if (cancelBtn) cancelBtn.style.display = forced ? "none" : "";
+  }
+}
+
+function _forceChangePassword() {
+  $("pw-current").value=""; $("pw-new").value=""; $("pw-confirm").value="";
+  setModalTitle("modal-password-titulo","Debes cambiar tu contraseña","Primer ingreso / reseteo");
+  _setPasswordModalForced(true);
+  $("modal-password").classList.add("open");
+  // Ocultar el resto de la app hasta que cambie la contraseña
+  document.body.classList.add("pw-locked");
+  const first = $("pw-current");
+  if (first) first.focus();
+}
 async function resetearPassword(userId, username) {
-  if(!confirm(`¿Resetear la contraseña de "${username}" a "mio2026"?`))return;
+  if(!confirm(`¿Resetear la contraseña de "${username}"? Se generará una contraseña temporal que el usuario deberá cambiar en el primer login.`))return;
   try{
     const res=await api(`/auth/users/${userId}/reset-password`,{method:"PUT"});
-    toast(res.detail,"success");
+    const tmp = res.temporary_password || "";
+    if (tmp) {
+      try { await navigator.clipboard.writeText(tmp); } catch {}
+      alert(`Contraseña temporal para "${username}":\n\n${tmp}\n\n(Ya se copió al portapapeles.) El usuario deberá cambiarla al iniciar sesión.`);
+      toast("Contraseña temporal generada y copiada","success");
+    } else {
+      toast(res.detail || "Contraseña reseteada","success");
+    }
   }catch(e){toast(e.message,"error");}
 }
 
@@ -1051,15 +1176,154 @@ async function guardarPassword() {
   if (!cur) { markFieldError("pw-current", "Ingresá tu contraseña actual"); ok = false; }
   if (!nw)  { markFieldError("pw-new",     "Ingresá la nueva contraseña"); ok = false; }
   if (!ok) { toast("Completá los campos obligatorios.","error"); return; }
-  if (nw.length < 4) { markFieldError("pw-new", "Mínimo 4 caracteres"); $("pw-new").focus(); return; }
+  if (nw.length < 8) { markFieldError("pw-new", "Mínimo 8 caracteres"); $("pw-new").focus(); return; }
+  if (nw === cur)    { markFieldError("pw-new", "Debe ser distinta a la actual"); $("pw-new").focus(); return; }
   if (nw !== conf)   { markFieldError("pw-confirm", "Las contraseñas no coinciden"); $("pw-confirm").focus(); return; }
   try{
     await api("/auth/change-password",{method:"PUT",body:JSON.stringify({current_password:cur,new_password:nw})});
-    toast("Contraseña actualizada","success"); cerrarModal("modal-password");
+    toast("Contraseña actualizada","success");
+    if (currentUser) { currentUser.must_change_password = false; localStorage.setItem("user", JSON.stringify(currentUser)); }
+    const wasForced = _pwForced;
+    _setPasswordModalForced(false);
+    $("modal-password").classList.remove("open"); clearFormErrors("modal-password");
+    document.body.classList.remove("pw-locked");
+    if (wasForced) {
+      // Recargar para re-inicializar con la sesión ya desbloqueada
+      location.reload();
+    }
   }catch(e){toast(e.message,"error");}
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m){m.classList.remove("open"); clearFormErrors(m.id);}}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
+
+/* ── Auditoría (admin) ─────────────────────────────────── */
+function _fmtAuditTs(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("es-AR") + " " + d.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  } catch { return iso; }
+}
+function _fmtAuditDetails(txt) {
+  if (!txt) return "";
+  try {
+    const o = JSON.parse(txt);
+    return Object.entries(o).map(([k,v]) => `${esc(k)}=${esc(typeof v==="object"?JSON.stringify(v):String(v))}`).join(" · ");
+  } catch { return esc(txt); }
+}
+async function renderAudit() {
+  const cont = $("audit-lista");
+  if (!cont) return;
+  cont.innerHTML = `<div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>`;
+  const q = new URLSearchParams();
+  const action = $("audit-f-action")?.value.trim();
+  const username = $("audit-f-username")?.value.trim();
+  const entity = $("audit-f-entity-type")?.value.trim();
+  const limit = parseInt($("audit-f-limit")?.value || "200", 10);
+  if (action)   q.set("action", action);
+  if (username) q.set("username", username);
+  if (entity)   q.set("entity_type", entity);
+  if (limit)    q.set("limit", String(Math.max(1, Math.min(limit, 1000))));
+  let rows = [];
+  try {
+    rows = await api("/auth/audit?" + q.toString()) || [];
+  } catch (e) {
+    cont.innerHTML = `<div style="padding:1rem;color:#c0392b">Error cargando auditoría: ${esc(e.message)}</div>`;
+    return;
+  }
+  if (!rows.length) {
+    cont.innerHTML = `<div style="padding:1rem;color:var(--muted)">Sin eventos.</div>`;
+    return;
+  }
+  cont.innerHTML = `
+    <table class="tbl">
+      <thead><tr>
+        <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>IP</th><th>Detalles</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td style="white-space:nowrap;font-size:.8rem">${esc(_fmtAuditTs(r.timestamp))}</td>
+          <td style="font-size:.82rem">${esc(r.username || "—")}</td>
+          <td style="font-size:.82rem;font-family:monospace">${esc(r.action)}</td>
+          <td style="font-size:.8rem">${esc([r.entity_type, r.entity_id].filter(Boolean).join(" #"))}</td>
+          <td style="font-size:.78rem;color:var(--muted)">${esc(r.ip || "")}</td>
+          <td style="font-size:.78rem;color:#555">${_fmtAuditDetails(r.details)}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+$("btn-audit-refresh")?.addEventListener("click", renderAudit);
+["audit-f-action","audit-f-username","audit-f-entity-type","audit-f-limit"].forEach(id => {
+  $(id)?.addEventListener("change", renderAudit);
+});
+
+/* ── 2FA ───────────────────────────────────────────────── */
+async function abrir2FA() {
+  $("modal-2fa").classList.add("open");
+  $("tfa-setup-block").style.display = "none";
+  $("tfa-disable-block").style.display = "none";
+  $("tfa-start-block").style.display = "none";
+  $("tfa-status-block").textContent = "Cargando…";
+  try {
+    const st = await api("/auth/2fa/status");
+    if (st && st.enabled) {
+      $("tfa-status-block").innerHTML = `<span style="color:#2d7a4f;font-weight:600">✓ 2FA activo</span>`;
+      $("tfa-disable-block").style.display = "block";
+      $("tfa-disable-pw").value = "";
+    } else {
+      $("tfa-status-block").innerHTML = `<span style="color:var(--muted)">2FA inactivo</span>`;
+      $("tfa-start-block").style.display = "block";
+    }
+  } catch (e) {
+    $("tfa-status-block").innerHTML = `<span style="color:#c0392b">Error: ${esc(e.message)}</span>`;
+  }
+}
+
+async function iniciar2FA() {
+  try {
+    const r = await api("/auth/2fa/setup", { method: "POST" });
+    $("tfa-start-block").style.display = "none";
+    $("tfa-setup-block").style.display = "block";
+    // Mostramos el secret para entrada manual en la app TOTP. Evitamos generar
+    // un QR con servicios externos para no filtrar el secreto a terceros; la
+    // CSP tampoco permite scripts externos así que la alternativa segura es
+    // entrada manual (copiar la clave) + link otpauth:// para mobile.
+    $("tfa-secret-line").textContent = r.secret;
+    const link = $("tfa-otpauth-link");
+    link.href = r.otpauth_uri;
+    link.textContent = r.otpauth_uri;
+    const copyBtn = $("tfa-copy-btn");
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try { await navigator.clipboard.writeText(r.secret); toast("Clave copiada", "success"); }
+        catch { toast("No se pudo copiar automáticamente", "warning"); }
+      };
+    }
+    $("tfa-activate-code").value = "";
+    $("tfa-activate-code").focus();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function activar2FA() {
+  const code = $("tfa-activate-code").value.trim();
+  if (!/^\d{6}$/.test(code)) { toast("Ingresá los 6 dígitos del código.", "warning"); return; }
+  try {
+    await api("/auth/2fa/activate", { method: "POST", body: JSON.stringify({ code }) });
+    toast("2FA activado ✓", "success");
+    cerrarModal("modal-2fa");
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function desactivar2FA() {
+  const password = $("tfa-disable-pw").value;
+  if (!password) { toast("Ingresá tu contraseña.", "warning"); return; }
+  if (!confirm("¿Desactivar 2FA? Tu cuenta volverá a requerir solo contraseña.")) return;
+  try {
+    await api("/auth/2fa/disable", { method: "POST", body: JSON.stringify({ password }) });
+    toast("2FA desactivado", "success");
+    cerrarModal("modal-2fa");
+  } catch (e) { toast(e.message, "error"); }
+}
 
 init().then(() => {
   if (!localStorage.getItem("tutorial_done")) tutorialStart();

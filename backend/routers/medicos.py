@@ -2,16 +2,24 @@ import logging
 from datetime import date, datetime, time, timedelta
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
+from audit import audit
+from auth import generate_ical_token, get_current_user, verify_ical_token
 from database import get_db
 
 log = logging.getLogger("miomedic.medicos")
+
+# Router principal: protegido con auth global en main.py
 router = APIRouter(tags=["medicos"])
+
+# Router público para feeds firmados (iCal). El token firmado reemplaza al Bearer
+# porque Google Calendar no puede mandar headers personalizados.
+public_router = APIRouter(tags=["medicos-public"])
 
 
 # ── iCal helpers ─────────────────────────────────────────────
@@ -78,42 +86,76 @@ def obtener_medico(medico_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/medicos", response_model=schemas.MedicoOut, status_code=201)
-def crear_medico(data: schemas.MedicoCreate, db: Session = Depends(get_db)):
+def crear_medico(
+    data: schemas.MedicoCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     m = models.Medico(**data.model_dump())
-    db.add(m); db.commit(); db.refresh(m)
-    # Auto-crear usuario para el profesional
-    import unicodedata
+    m.ical_token = generate_ical_token()
+    db.add(m); db.flush()
+    audit(db, request, "medico.create", user=user,
+          entity_type="medico", entity_id=m.id,
+          details={"nombre": m.nombre, "apellido": m.apellido, "matricula": m.matricula})
+    db.commit(); db.refresh(m)
+    # Auto-crear usuario para el profesional con password temporal
+    import secrets, unicodedata
     from auth import hash_password
     def _c(s):
         s = unicodedata.normalize("NFD", s.lower())
         return "".join(c for c in s if unicodedata.category(c) != "Mn").replace(" ", "")
     username = f"{_c(m.nombre)[0]}.{_c(m.apellido)}"
     if not db.query(models.User).filter(models.User.username == username).first():
+        temp_pw = secrets.token_urlsafe(9)
         u = models.User(
             username=username,
-            password_hash=hash_password("mio2026"),
+            password_hash=hash_password(temp_pw),
             display_name=f"Dr/a. {m.nombre} {m.apellido}",
             role="medico",
             medico_id=m.id,
+            must_change_password=True,
         )
-        db.add(u); db.commit()
-        log.info("Usuario '%s' auto-creado para %s %s", username, m.nombre, m.apellido)
+        db.add(u)
+        db.commit()
+        log.warning(
+            "Usuario '%s' auto-creado para %s %s. Contraseña temporal: %s (anotala, se muestra una sola vez).",
+            username, m.nombre, m.apellido, temp_pw,
+        )
     return _get_medico(m.id, db)
 
 
 @router.put("/medicos/{medico_id}", response_model=schemas.MedicoOut)
-def actualizar_medico(medico_id: int, data: schemas.MedicoCreate, db: Session = Depends(get_db)):
+def actualizar_medico(
+    medico_id: int,
+    data: schemas.MedicoCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
     if not m:
         raise HTTPException(404, "Médico no encontrado")
-    for k, v in data.model_dump().items():
+    payload = data.model_dump()
+    changed_fields = [k for k in payload if getattr(m, k) != payload[k]]
+    for k, v in payload.items():
         setattr(m, k, v)
+    if changed_fields:
+        audit(db, request, "medico.update", user=user,
+              entity_type="medico", entity_id=m.id,
+              details={"fields": changed_fields})
     db.commit()
     return _get_medico(medico_id, db)
 
 
 @router.delete("/medicos/{medico_id}", status_code=204)
-def eliminar_medico(medico_id: int, force: bool = False, db: Session = Depends(get_db)):
+def eliminar_medico(
+    medico_id: int,
+    request: Request,
+    force: bool = False,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
     if not m:
         raise HTTPException(404, "Médico no encontrado")
@@ -132,6 +174,9 @@ def eliminar_medico(medico_id: int, force: bool = False, db: Session = Depends(g
                 "No se puede eliminar: tiene turnos pendientes o confirmados. Cancelalos primero.",
             )
 
+    audit(db, request, "medico.delete", user=user,
+          entity_type="medico", entity_id=m.id,
+          details={"nombre": m.nombre, "apellido": m.apellido, "force": bool(force)})
     # Eliminar turnos, usuario y horarios asociados
     db.query(models.Turno).filter(models.Turno.medico_id == medico_id).delete()
     db.query(models.User).filter(models.User.medico_id == medico_id).delete()
@@ -203,14 +248,53 @@ def disponibilidad(
 
 
 # ── Calendario iCal (.ics) ────────────────────────────────
-@router.get("/medicos/{medico_id}/calendario.ics")
-def calendario_ical(medico_id: int, db: Session = Depends(get_db)):
+@router.get("/medicos/{medico_id}/calendario-url")
+def calendario_url(
+    medico_id: int,
+    request: Request,
+    regenerate: bool = Query(False),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     """
-    Feed iCal con los turnos del médico.
+    Devuelve la URL firmada (token) del feed iCal del médico. Si aún no tiene
+    token o se pide `regenerate=true`, se genera uno nuevo (invalidando el anterior).
+    Requiere autenticación — solo el admin / el propio médico deberían usarlo.
+    """
+    m = db.query(models.Medico).filter(models.Medico.id == medico_id).first()
+    if not m:
+        raise HTTPException(404, "Médico no encontrado")
+    if regenerate or not m.ical_token:
+        m.ical_token = generate_ical_token()
+        audit(db, request, "medico.ical_token.rotate", user=user,
+              entity_type="medico", entity_id=m.id,
+              details={"reason": "regenerate" if regenerate else "initial"})
+        db.commit()
+    return {
+        "medico_id": m.id,
+        "ical_token": m.ical_token,
+        "path": f"/feed/medicos/{m.id}/calendario.ics?token={m.ical_token}",
+    }
+
+
+@public_router.get("/feed/medicos/{medico_id}/calendario.ics")
+def calendario_ical(
+    medico_id: int,
+    token: str = Query(..., description="Token firmado del médico (ver /medicos/{id}/calendario-url)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Feed iCal público firmado con los turnos del médico.
     El profesional pega esta URL en Google Calendar → "Otros calendarios" →
     "Desde URL" y los turnos se sincronizan automáticamente.
+    El `token` reemplaza al Bearer porque Google Calendar no manda headers.
     """
-    m = _get_medico(medico_id, db)
+    m = db.query(models.Medico).options(
+        joinedload(models.Medico.especialidad),
+    ).filter(models.Medico.id == medico_id).first()
+    if not m or not verify_ical_token(medico_id, token, m.ical_token):
+        # 404 en vez de 403 para no filtrar existencia
+        raise HTTPException(404, "Feed no encontrado o token inválido")
 
     # Últimos 30 días + todos los futuros
     desde = datetime.now() - timedelta(days=30)

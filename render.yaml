@@ -4,7 +4,31 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    # Liveness probe — Render reinicia la instancia si /healthz devuelve != 200
+    healthCheckPath: /healthz
     envVars:
+      # Clave de firma JWT — Render la genera automáticamente y la persiste.
+      # NO copiar en otros servicios ni subir al repo.
+      - key: SECRET_KEY
+        generateValue: true
+      # Contraseña inicial del admin. Render la genera una vez; se loguea al
+      # primer arranque y debe cambiarse en el primer login.
+      - key: INITIAL_ADMIN_PASSWORD
+        generateValue: true
+      # Clave independiente para cifrado at-rest de PII (telefono, email,
+      # totp_secret). Se genera una vez y se persiste en Render; rotarla
+      # requiere re-cifrar los datos con la clave vieja antes.
+      - key: FIELD_ENCRYPTION_KEY
+        generateValue: true
+      # Duración del refresh token (días). 30 es un buen default para una app
+      # interna con rotación+detección de reuso.
+      - key: REFRESH_TOKEN_DAYS
+        value: "30"
+      # Lista blanca de orígenes CORS. Por default el frontend se sirve desde
+      # el mismo dominio que el backend, así que alcanza con dejar vacío.
+      # Si hubiera un frontend en otro dominio, listarlo separado por comas.
+      - key: CORS_ORIGINS
+        value: ""
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false
       - key: WHATSAPP_PHONE_NUMBER_ID
@@ -15,6 +39,10 @@ services:
         value: es_AR
       - key: WHATSAPP_API_VERSION
         value: v21.0
+      # Retención del backup automático del SQLite (en días). El job corre
+      # cada día a las 03:00 y guarda en /backend/backups/.
+      - key: BACKUP_RETENTION_DAYS
+        value: "14"
     disk:
       name: miomedic-data
       mountPath: /backend

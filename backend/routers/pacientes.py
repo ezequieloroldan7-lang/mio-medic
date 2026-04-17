@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, Integer
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from audit import audit, _diff_dict
+from auth import get_current_user
 from database import get_db
 import models, schemas
 
@@ -76,23 +78,54 @@ def _normalizar(d):
     return d
 
 
+_AUDIT_FIELDS = ["nombre", "apellido", "dni", "nro_hc", "financiador", "plan", "deriva"]
+
+
 @router.post("/", response_model=schemas.PacienteOut, status_code=201)
-def crear_paciente(data: schemas.PacienteCreate, db: Session = Depends(get_db)):
+def crear_paciente(
+    data: schemas.PacienteCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     dump = _normalizar(data.model_dump())
     p = models.Paciente(**dump)
-    db.add(p); db.commit(); db.refresh(p); return p
+    db.add(p); db.flush()
+    audit(db, request, "paciente.create", user=user,
+          entity_type="paciente", entity_id=p.id,
+          details={"apellido": p.apellido, "nombre": p.nombre, "dni": p.dni})
+    db.commit(); db.refresh(p); return p
 
 @router.put("/{paciente_id}", response_model=schemas.PacienteOut)
-def actualizar_paciente(paciente_id: int, data: schemas.PacienteCreate, db: Session = Depends(get_db)):
+def actualizar_paciente(
+    paciente_id: int,
+    data: schemas.PacienteCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     p = db.query(models.Paciente).filter(models.Paciente.id == paciente_id).first()
     if not p: raise HTTPException(404, "Paciente no encontrado")
+    before = {k: getattr(p, k) for k in _AUDIT_FIELDS}
     payload = _normalizar(data.model_dump())
     for k, v in payload.items(): setattr(p, k, v)
+    diff = _diff_dict(before, payload, _AUDIT_FIELDS)
+    if diff:
+        audit(db, request, "paciente.update", user=user,
+              entity_type="paciente", entity_id=p.id, details={"diff": diff})
     db.commit(); db.refresh(p); return p
 
 @router.delete("/{paciente_id}", status_code=204)
-def eliminar_paciente(paciente_id: int, db: Session = Depends(get_db)):
+def eliminar_paciente(
+    paciente_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     p = db.query(models.Paciente).filter(models.Paciente.id == paciente_id).first()
     if not p: raise HTTPException(404, "Paciente no encontrado")
+    audit(db, request, "paciente.delete", user=user,
+          entity_type="paciente", entity_id=p.id,
+          details={"apellido": p.apellido, "nombre": p.nombre, "dni": p.dni})
     db.query(models.Turno).filter(models.Turno.paciente_id == paciente_id).delete()
     db.delete(p); db.commit()

@@ -68,6 +68,7 @@ class TurnoOut(TurnoBase):
 # ── Auth / User ──────────────────────────────────────────────
 class LoginRequest(BaseModel):
     username: str; password: str
+    totp_code: Optional[str] = None
 
 class TokenOut(BaseModel):
     access_token: str; token_type: str = "bearer"
@@ -76,6 +77,8 @@ class TokenOut(BaseModel):
 class UserOut(BaseModel):
     id: int; username: str; display_name: str
     role: str; medico_id: Optional[int] = None
+    must_change_password: bool = False
+    totp_enabled: bool = False
     class Config: from_attributes = True
 
 class UserCreate(BaseModel):
