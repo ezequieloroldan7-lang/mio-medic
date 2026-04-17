@@ -198,14 +198,15 @@
           <input type="hidden" id="turno-paciente-id"/>
           <div id="turno-pac-info" class="turno-pac-info" style="display:none"></div>
           <div id="turno-new-pac-fields" class="turno-new-pac-fields">
-            <div class="form-group"><label for="turno-new-dni">DNI <span aria-hidden="true">*</span></label><input type="text" id="turno-new-dni" placeholder="Sin puntos" aria-required="true"/></div>
             <div class="form-group"><label for="turno-new-tel">Teléfono <span aria-hidden="true">*</span></label><input type="tel" id="turno-new-tel" placeholder="+54 11 ..." aria-required="true"/></div>
+            <div class="form-group"><label for="turno-new-email">Email <span aria-hidden="true">*</span></label><input type="email" id="turno-new-email" placeholder="paciente@correo.com" aria-required="true"/></div>
+            <div class="form-group"><label for="turno-new-dni">DNI</label><input type="text" id="turno-new-dni" placeholder="Sin puntos (opcional)"/></div>
             <div class="form-group"><label for="turno-new-hc">HC</label><input type="text" id="turno-new-hc" readonly style="background:#f5f0eb"/></div>
           </div>
         </div>
         <div class="form-group">
           <label for="turno-financiador">Financiador</label>
-          <input type="text" id="turno-financiador" list="datalist-financiadores" placeholder="Ej: OSDE" autocomplete="off" style="text-transform:uppercase"/>
+          <input type="text" id="turno-financiador" list="datalist-financiadores" placeholder="Elegí del listado o escribí uno nuevo" autocomplete="off" style="text-transform:uppercase"/>
         </div>
         <div class="form-group">
           <label for="turno-plan">Plan</label>
@@ -271,7 +272,7 @@
         <div class="form-group"><label for="pac-email">Email</label><input type="email" id="pac-email" placeholder="paciente@correo.com"/></div>
         <div class="form-group"><label for="pac-dni">DNI</label><input type="text" id="pac-dni" placeholder="Sin puntos"/></div>
         <div class="form-group"><label for="pac-hc">N° Historia Clínica</label><input type="text" id="pac-hc" placeholder="Ej: 100"/></div>
-        <div class="form-group"><label for="pac-financiador">Financiador</label><input type="text" id="pac-financiador" list="datalist-financiadores" placeholder="Ej: OSDE, SWISS MEDICAL" autocomplete="off" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label for="pac-financiador">Financiador</label><input type="text" id="pac-financiador" list="datalist-financiadores" placeholder="Elegí del listado o escribí uno nuevo" autocomplete="off" style="text-transform:uppercase"/></div>
         <div class="form-group"><label for="pac-plan">Plan</label><input type="text" id="pac-plan" list="datalist-planes" placeholder="Ej: 210" autocomplete="off" style="text-transform:uppercase"/></div>
         <div class="form-group"><label for="pac-deriva">Deriva</label><input type="text" id="pac-deriva" placeholder="Nombre del derivante" style="text-transform:uppercase"/></div>
       </div>
@@ -314,22 +315,63 @@
   </div>
 </div>
 
-<!-- MODAL: NUEVA ESPECIALIDAD -->
+<!-- MODAL: GESTOR DE ESPECIALIDADES -->
 <div class="modal-overlay" id="modal-especialidad" role="dialog" aria-modal="true" aria-labelledby="modal-especialidad-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <h2 class="modal-title" id="modal-especialidad-titulo">Nueva Especialidad</h2>
+      <h2 class="modal-title" id="modal-especialidad-titulo">Especialidades</h2>
       <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-especialidad">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label for="esp-nombre">Nombre <span aria-hidden="true">*</span></label>
-        <input type="text" id="esp-nombre" placeholder="Ej: Oncología" aria-required="true" maxlength="60"/>
+        <label for="esp-nombre">Agregar especialidad</label>
+        <div style="display:flex;gap:.5rem;align-items:stretch">
+          <input type="text" id="esp-nombre" placeholder="Ej: Oncología" maxlength="60" style="flex:1"/>
+          <button type="button" class="btn btn-primary" id="btn-save-especialidad">Agregar</button>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:.75rem 0 .35rem">Existentes</div>
+      <ul id="esp-list" class="esp-list" style="list-style:none;padding:0;margin:0"></ul>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close-modal="modal-especialidad">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO BLOQUEO -->
+<div class="modal-overlay" id="modal-bloqueo" role="dialog" aria-modal="true" aria-labelledby="modal-bloqueo-titulo" aria-hidden="true">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-bloqueo-titulo">Bloquear día / horario</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-bloqueo">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label for="bloq-medico">Profesional <span aria-hidden="true">*</span></label>
+          <select id="bloq-medico" class="sel-medico" aria-required="true"></select>
+        </div>
+        <div class="form-group">
+          <label for="bloq-inicio">Desde <span aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="bloq-inicio" aria-required="true"/>
+        </div>
+        <div class="form-group">
+          <label for="bloq-fin">Hasta <span aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="bloq-fin" aria-required="true"/>
+        </div>
+        <div class="form-group full">
+          <label for="bloq-motivo">Motivo</label>
+          <input type="text" id="bloq-motivo" placeholder="Ej: licencia, congreso, feriado" maxlength="120"/>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.5rem">
+        El bloqueo impide agendar turnos con el profesional en ese rango, en cualquier consultorio.
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" data-close-modal="modal-especialidad">Cancelar</button>
-      <button class="btn btn-primary" id="btn-save-especialidad">Guardar especialidad</button>
+      <button class="btn btn-outline" data-close-modal="modal-bloqueo">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-bloqueo">Guardar bloqueo</button>
     </div>
   </div>
 </div>
