@@ -1483,12 +1483,8 @@ async function cancelarTurno(id) {
   try{
     await api(`/turnos/${id}/cancelar`,{method:"DELETE"});
     toast("Turno cancelado","success");
-    document.querySelectorAll("tr").forEach(tr=>{
-      if(tr.innerHTML.includes('cancelarTurno('+id+')')){
-        const badge = tr.querySelector(".badge");
-        if(badge){ badge.className="badge badge-cancelado"; badge.textContent="cancelado"; }
-      }
-    });
+    if ($("view-turnos")?.classList.contains("active")) renderTurnos();
+    if ($("view-agenda")?.classList.contains("active")) renderAgenda();
     renderDashboard();
   }catch(e){toast(e.message,"error");}
 }
@@ -1505,13 +1501,10 @@ async function eliminarTurno(id) {
   try{
     await api("/turnos/"+id, {method:"DELETE"});
     toast("Turno eliminado ✓","success");
-    document.querySelectorAll("tr").forEach(tr=>{
-      if(tr.innerHTML.includes('eliminarTurno('+id+')')){
-        tr.style.opacity="0.3";
-        tr.style.transition="opacity 0.3s";
-        setTimeout(()=>tr.remove(), 300);
-      }
-    });
+    // Re-render de las vistas afectadas (la tabla de turnos usa data-action,
+    // no onclick, así que manipular el DOM por string ya no aplica).
+    if ($("view-turnos")?.classList.contains("active")) renderTurnos();
+    if ($("view-agenda")?.classList.contains("active")) renderAgenda();
     renderDashboard();
   }catch(e){
     toast("Error: "+e.message,"error");
@@ -1519,7 +1512,7 @@ async function eliminarTurno(id) {
 }
 
 /* ── Modal Paciente ─────────────────────────────────────── */
-function abrirNuevoPaciente(prefill) {
+async function abrirNuevoPaciente(prefill) {
   pacienteEditing=null; setModalTitle("modal-paciente-titulo","Nuevo Paciente");
   ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-financiador","pac-plan","pac-deriva"].forEach(id=>$(id).value="");
   if (typeof prefill === "string" && prefill.trim()) {
@@ -1528,6 +1521,11 @@ function abrirNuevoPaciente(prefill) {
     $("pac-apellido").value = (partes.shift() || "").toUpperCase();
     $("pac-nombre").value   = partes.join(" ").toUpperCase();
   }
+  // Auto-generar HC (editable, sirve como sugerencia del próximo nro)
+  try {
+    const res = await api("/pacientes/next-hc");
+    $("pac-hc").value = res.next_hc;
+  } catch(_) {}
   $("modal-paciente").classList.add("open");
   (($("pac-apellido").value ? $("pac-nombre") : $("pac-apellido")) || {}).focus?.();
 }
@@ -1545,6 +1543,8 @@ async function guardarPaciente() {
   if (!validateRequired([
     {id:"pac-nombre",   msg:"El nombre es obligatorio"},
     {id:"pac-apellido", msg:"El apellido es obligatorio"},
+    {id:"pac-tel",      msg:"El teléfono es obligatorio"},
+    {id:"pac-email",    msg:"El email es obligatorio"},
   ])) { toast("Completá los campos obligatorios.","error"); return; }
   const body={nombre:$("pac-nombre").value.trim().toUpperCase(),apellido:$("pac-apellido").value.trim().toUpperCase(),telefono:$("pac-tel").value.trim()||null,email:$("pac-email").value.trim().toLowerCase()||null,dni:$("pac-dni").value.trim()||null,nro_hc:$("pac-hc").value.trim()||null,financiador:$("pac-financiador").value.trim().toUpperCase()||null,plan:$("pac-plan").value.trim().toUpperCase()||null,deriva:$("pac-deriva").value.trim().toUpperCase()||null};
   await _withSubmitLock("modal-paciente", async () => {
