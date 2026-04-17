@@ -979,6 +979,22 @@ tr:hover td { background: var(--surface-hover); }
 .dash-turno-info span { white-space:nowrap; }
 .dash-turno-actions { margin-left:auto; display:flex; gap:.35rem; flex-shrink:0; }
 
+/* Tabla de pacientes (vista pestaña Pacientes) */
+#tabla-pacientes { overflow-x:auto; }
+.pac-table { width:100%; border-collapse:collapse; font-size:.85rem; background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.pac-table thead th {
+  text-align:left; padding:.65rem .7rem; background:var(--accent);
+  font-weight:600; color:var(--primary-dk); text-transform:uppercase;
+  font-size:.7rem; letter-spacing:.04em; border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+.pac-table tbody td { padding:.6rem .7rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+.pac-table tbody tr:last-child td { border-bottom:none; }
+.pac-table tbody tr:hover { background:var(--accent); }
+.pac-table .pac-td-nombre { font-weight:600; white-space:nowrap; }
+.pac-table .pac-actions-td { white-space:nowrap; text-align:right; }
+.pac-table .pac-actions-td .btn { margin-left:.25rem; }
+
 /* Patient info row in turno modal */
 .turno-pac-info {
   display:flex; gap:.8rem; flex-wrap:wrap; font-size:.78rem; color:var(--muted);
