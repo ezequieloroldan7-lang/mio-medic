@@ -282,6 +282,8 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 LOGIN_HTML = FRONTEND_DIR / "login.html"
+MANIFEST_FILE = FRONTEND_DIR / "manifest.webmanifest"
+SW_FILE       = FRONTEND_DIR / "service-worker.js"
 
 @app.get("/")
 def root():
@@ -290,6 +292,24 @@ def root():
 @app.get("/login")
 def login_page():
     return FileResponse(str(LOGIN_HTML))
+
+# PWA: manifest y service-worker se sirven desde el root para que el scope
+# del SW cubra toda la app (un SW en /static/ solo controlaría /static/*).
+@app.get("/manifest.webmanifest")
+def pwa_manifest():
+    return FileResponse(
+        str(MANIFEST_FILE),
+        media_type="application/manifest+json",
+    )
+
+@app.get("/service-worker.js")
+def pwa_service_worker():
+    # no-cache para que al deployar se tome el SW nuevo al primer fetch.
+    return FileResponse(
+        str(SW_FILE),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+    )
 
 
 @app.get("/health")
