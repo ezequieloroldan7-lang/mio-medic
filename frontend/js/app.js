@@ -418,13 +418,21 @@ async function init() {
     // 401 → /api interceptor hace logout; cualquier otro error no bloquea init
   }
 
-  // Si es medico, ocultar secciones que no corresponden
+  // Si es medico, ocultar secciones que no le corresponden (pacientes y profesionales).
   if (currentUser && currentUser.role === "medico") {
     document.querySelectorAll('[data-view="view-pacientes"],[data-view="view-profesionales"]').forEach(el=>{
       const li = el.closest("li");
       (li || el).style.display = "none";
     });
-    document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
+  }
+  // Las pestañas .admin-only solo son para role="admin". Cualquier otro rol
+  // (medico, turnos, o lo que venga) las ve ocultas. El backend igual gatea
+  // los endpoints con require_admin — esto es defensa en el UI.
+  if (!currentUser || currentUser.role !== "admin") {
+    document.querySelectorAll(".admin-only").forEach(el => {
+      const li = el.closest("li");
+      (li || el).style.display = "none";
+    });
   }
 
   [medicos, especialidades, pacientes] = await Promise.all([api("/medicos"), api("/especialidades"), api("/pacientes")]);

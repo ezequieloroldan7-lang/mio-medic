@@ -359,34 +359,64 @@ def _seed_datos_iniciales():
 
 def _seed_admin_user():
     """
-    Crea el usuario admin MIO TURNOS y usuarios por profesional si no existen.
+    Crea los usuarios iniciales si no existen:
+    - 'admin' (role=admin): para gestión de usuarios y auditoría.
+    - 'mioturnos' (role=turnos): uso diario de la secretaría (agenda de turnos).
+    Más un usuario por cada médico.
 
-    Seguridad: la password inicial se toma de la variable de entorno
-    INITIAL_ADMIN_PASSWORD (o INITIAL_USER_PASSWORD para médicos). Si no está
-    seteada, se genera una aleatoria y se loguea UNA VEZ. En ambos casos se
-    marca must_change_password=True para forzar el cambio en el primer login.
+    Seguridad: la password inicial del admin sale de INITIAL_ADMIN_PASSWORD;
+    para mioturnos y médicos, de INITIAL_USER_PASSWORD o se genera aleatoria.
+    En todos los casos se fuerza must_change_password=True.
+
+    Migración idempotente: si existe 'mioturnos' con role='admin' (legacy),
+    se lo demota a 'turnos'. Es seguro re-correrlo: solo actúa si el rol
+    todavía es 'admin'.
     """
     import secrets
     from auth import hash_password
     db = SessionLocal()
     try:
-        # Admin / secretaria
-        if not db.query(models.User).filter(models.User.username == "mioturnos").first():
+        # Usuario admin dedicado (gestión de usuarios + auditoría)
+        if not db.query(models.User).filter(models.User.username == "admin").first():
             pw = os.getenv("INITIAL_ADMIN_PASSWORD") or secrets.token_urlsafe(9)
             admin = models.User(
-                username="mioturnos",
+                username="admin",
                 password_hash=hash_password(pw),
-                display_name="MIO TURNOS",
+                display_name="Administrador",
                 role="admin",
                 must_change_password=True,
             )
             db.add(admin)
             db.commit()
             log.warning(
-                "Usuario admin 'mioturnos' creado. Contraseña inicial: %s "
+                "Usuario 'admin' creado. Contraseña inicial: %s "
                 "(cambiala en el primer login). Anotala: no se mostrará de nuevo.",
                 pw,
             )
+
+        # Usuario de secretaría / turnos
+        mioturnos = db.query(models.User).filter(models.User.username == "mioturnos").first()
+        if not mioturnos:
+            pw = os.getenv("INITIAL_USER_PASSWORD") or secrets.token_urlsafe(9)
+            db.add(models.User(
+                username="mioturnos",
+                password_hash=hash_password(pw),
+                display_name="MIO TURNOS",
+                role="turnos",
+                must_change_password=True,
+            ))
+            db.commit()
+            log.warning(
+                "Usuario 'mioturnos' (rol turnos) creado. Contraseña inicial: %s "
+                "(cambiala en el primer login).",
+                pw,
+            )
+        elif mioturnos.role == "admin":
+            # Deploys previos creaban mioturnos con role=admin. Ahora la
+            # gestión/auditoría vive en el usuario 'admin' aparte.
+            mioturnos.role = "turnos"
+            db.commit()
+            log.warning("Usuario 'mioturnos' demotado de 'admin' a 'turnos'.")
 
         # Un usuario por cada médico que no tenga usuario
         medicos_sin_user = db.query(models.Medico).filter(
