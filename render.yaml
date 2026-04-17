@@ -4,6 +4,8 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    # Liveness probe — Render reinicia la instancia si /healthz devuelve != 200
+    healthCheckPath: /healthz
     envVars:
       # Clave de firma JWT — Render la genera automáticamente y la persiste.
       # NO copiar en otros servicios ni subir al repo.
@@ -28,6 +30,10 @@ services:
         value: es_AR
       - key: WHATSAPP_API_VERSION
         value: v21.0
+      # Retención del backup automático del SQLite (en días). El job corre
+      # cada día a las 03:00 y guarda en /backend/backups/.
+      - key: BACKUP_RETENTION_DAYS
+        value: "14"
     disk:
       name: miomedic-data
       mountPath: /backend

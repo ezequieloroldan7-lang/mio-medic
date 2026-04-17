@@ -1,7 +1,8 @@
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 from database import Base
 import enum
+from datetime import datetime
 
 
 class EstadoTurno(str, enum.Enum):
@@ -93,3 +94,29 @@ class User(Base):
     medico_id     = Column(Integer, ForeignKey("medicos.id"), nullable=True)
     must_change_password = Column(Boolean, nullable=False, default=False)
     medico        = relationship("Medico")
+
+
+class AuditLog(Base):
+    """
+    Registro inmutable de eventos sensibles. Requerido por Ley 25.326 / HIPAA para
+    trazabilidad de accesos y modificaciones sobre datos de salud.
+
+    action: string corto ("login.ok", "paciente.create", ...).
+    entity_type / entity_id: objeto afectado (puede ser None para eventos como login).
+    details: JSON-encoded string con campos adicionales (diff resumido, motivo, etc).
+    ip: IP del cliente según X-Forwarded-For (detrás de proxy) o request.client.
+    """
+    __tablename__ = "audit_log"
+    id           = Column(Integer, primary_key=True, index=True)
+    timestamp    = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    user_id      = Column(Integer, index=True)        # sin FK: queremos preservar el log aunque se borre el usuario
+    username     = Column(String, index=True)         # desnormalizado (el user_id puede ya no existir)
+    action       = Column(String, nullable=False, index=True)
+    entity_type  = Column(String, index=True)
+    entity_id    = Column(Integer, index=True)
+    details      = Column(Text)
+    ip           = Column(String)
+
+    __table_args__ = (
+        Index("ix_audit_ts_action", "timestamp", "action"),
+    )

@@ -5,13 +5,15 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
+from audit import audit, _diff_dict
+from auth import get_current_user
 from database import get_db, SessionLocal
 from whatsapp import enviar_turno_agendado
 import gcalendar
@@ -284,9 +286,20 @@ def obtener_turno(turno_id: int, db: Session = Depends(get_db)):
     return t
 
 
+_TURNO_AUDIT_FIELDS = [
+    "paciente_id", "medico_id", "consultorio",
+    "fecha_hora_inicio", "duracion_minutos", "estado", "observaciones",
+]
+
+
 # ── CREATE ───────────────────────────────────────────────────
 @router.post("/", response_model=schemas.TurnoOut, status_code=201)
-def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
+def crear_turno(
+    data: schemas.TurnoCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     _validar_horario(data.fecha_hora_inicio)
     _normalizar_consultorio(data.consultorio)
     _normalizar_duracion(data.duracion_minutos)
@@ -300,7 +313,15 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
         raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
     t = models.Turno(**data.model_dump())
-    db.add(t)
+    db.add(t); db.flush()
+    audit(db, request, "turno.create", user=user,
+          entity_type="turno", entity_id=t.id,
+          details={
+              "paciente_id": t.paciente_id, "medico_id": t.medico_id,
+              "consultorio": t.consultorio,
+              "fecha_hora_inicio": t.fecha_hora_inicio.isoformat(),
+              "duracion_minutos": t.duracion_minutos,
+          })
     db.commit()
     db.refresh(t)
     log.info("Turno creado id=%s paciente=%s medico=%s fecha=%s",
@@ -332,12 +353,19 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
 
 # ── UPDATE ───────────────────────────────────────────────────
 @router.put("/{turno_id}", response_model=schemas.TurnoOut)
-def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Depends(get_db)):
+def actualizar_turno(
+    turno_id: int,
+    data: schemas.TurnoUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     t = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not t:
         raise HTTPException(404, "Turno no encontrado")
 
     payload = data.model_dump(exclude_none=True)
+    before = {k: getattr(t, k) for k in _TURNO_AUDIT_FIELDS}
 
     # Si cambian datos que afectan solapamiento, revalidamos
     nuevo_consultorio = payload.get("consultorio", t.consultorio)
@@ -356,6 +384,11 @@ def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Dep
 
     for k, v in payload.items():
         setattr(t, k, v)
+    after = {k: getattr(t, k) for k in _TURNO_AUDIT_FIELDS}
+    diff = _diff_dict(before, after, _TURNO_AUDIT_FIELDS)
+    if diff:
+        audit(db, request, "turno.update", user=user,
+              entity_type="turno", entity_id=t.id, details={"diff": diff})
     db.commit()
     db.refresh(t)
 
@@ -369,7 +402,12 @@ def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Dep
 
 # ── SOFT CANCEL ──────────────────────────────────────────────
 @router.delete("/{turno_id}/cancelar", status_code=204)
-def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
+def cancelar_turno(
+    turno_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     t = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not t:
         raise HTTPException(404, "Turno no encontrado")
@@ -378,6 +416,7 @@ def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
     m = db.query(models.Medico).filter(models.Medico.id == t.medico_id).first()
     gcal_id = m.google_calendar_id if m else None
     event_id = t.google_event_id
+    audit(db, request, "turno.cancel", user=user, entity_type="turno", entity_id=t.id)
     db.commit()
     log.info("Turno id=%s cancelado", turno_id)
     if gcal_id and event_id:
@@ -386,7 +425,12 @@ def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
 
 # ── HARD DELETE ──────────────────────────────────────────────
 @router.delete("/{turno_id}", status_code=204)
-def eliminar_turno(turno_id: int, db: Session = Depends(get_db)):
+def eliminar_turno(
+    turno_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     t = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not t:
         raise HTTPException(404, "Turno no encontrado")
@@ -394,6 +438,13 @@ def eliminar_turno(turno_id: int, db: Session = Depends(get_db)):
     m = db.query(models.Medico).filter(models.Medico.id == t.medico_id).first()
     gcal_id = m.google_calendar_id if m else None
     event_id = t.google_event_id
+    audit(db, request, "turno.delete", user=user,
+          entity_type="turno", entity_id=t.id,
+          details={
+              "paciente_id": t.paciente_id,
+              "medico_id": t.medico_id,
+              "fecha_hora_inicio": t.fecha_hora_inicio.isoformat(),
+          })
     db.delete(t)
     db.commit()
     log.info("Turno id=%s ELIMINADO permanentemente", turno_id)

@@ -30,9 +30,11 @@ from sqlalchemy.orm import Session, joinedload
 
 import models
 from auth import generate_ical_token, get_current_user
+from backup import run_backup
 from database import SessionLocal, engine, get_db
 from routers import medicos, pacientes, turnos
 from routers.auth_router import router as auth_router
+from security_headers import SecurityHeadersMiddleware
 from whatsapp import enviar_confirmacion
 
 
@@ -46,6 +48,14 @@ log = logging.getLogger("miomedic")
 
 # ── Scheduler para WhatsApp ──────────────────────────────────
 scheduler = AsyncIOScheduler()
+
+
+def tarea_backup():
+    """Corre una vez al día: backup del SQLite con rotación."""
+    try:
+        run_backup(engine)
+    except Exception as e:  # noqa: BLE001
+        log.exception("Error en tarea_backup: %s", e)
 
 
 def tarea_whatsapp():
@@ -112,6 +122,9 @@ def _migrate_db():
                 conn.execute(text("ALTER TABLE medicos ADD COLUMN ical_token TEXT"))
             log.info("Migración: agregada columna medicos.ical_token")
 
+    # audit_log se crea automáticamente vía Base.metadata.create_all cuando
+    # el modelo está definido; nada que migrar si ya existe.
+
     # Eliminar medicos de prueba (dejar solo Garrido)
     db = SessionLocal()
     try:
@@ -170,6 +183,8 @@ async def lifespan(app: FastAPI):
     _seed_datos_iniciales()
     _seed_admin_user()
     scheduler.add_job(tarea_whatsapp, "interval", hours=1, id="wa_reminders", replace_existing=True)
+    # Backup diario del SQLite a las 03:00 (hora del servidor). No-op en Postgres.
+    scheduler.add_job(tarea_backup, "cron", hour=3, minute=0, id="db_backup", replace_existing=True)
     scheduler.start()
     log.info("Scheduler iniciado. App lista.")
     yield
@@ -198,6 +213,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# Cabeceras de seguridad (CSP, HSTS, X-Frame-Options, etc).
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ── Routers ──
 # auth_router: /auth/login debe ser público (si no, nadie puede loguearse).
@@ -232,7 +250,13 @@ def login_page():
 
 
 @app.get("/health")
+@app.get("/healthz")
 def health():
+    """
+    Liveness probe. Render usa esto para detectar caídas (ver healthCheckPath en
+    render.yaml). Devuelve 200 si la app responde; no toca la BD para no tirar
+    el healthcheck por problemas transitorios del scheduler.
+    """
     return {"status": "ok", "timestamp": datetime.now().isoformat(), "version": app.version}
 
 
