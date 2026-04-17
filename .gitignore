@@ -2,12 +2,18 @@
 .env
 google-credentials
 google-credentials.json
+.secret_key
+backend/.secret_key
+.field_key
+backend/.field_key
 
 # Base de datos
 *.db
 *.db-shm
 *.db-wal
 *.db-journal
+backups/
+backend/backups/
 
 # Datos sensibles de pacientes (archivo Excel, no codigo .py)
 pacientes.xlsx

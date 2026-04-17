@@ -2,21 +2,30 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="MIO Medic"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
   <meta name="theme-color" content="#FAF7F3"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="icon" href="/static/img/logo.png" type="image/png"/>
+  <link rel="apple-touch-icon" href="/static/img/logo.png"/>
   <title>MIO MEDIC — Turnos</title>
+  <!-- Tema: aplica data-theme antes del primer paint para evitar FOUC -->
+  <script src="/static/js/theme.js?v=2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/css/styles.css?v=16"/>
+  <link rel="stylesheet" href="/static/css/styles.css?v=20"/>
 </head>
 <body>
 
+<a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+
 <!-- HEADER -->
 <header class="header">
-  <button class="menu-toggle" id="menu-toggle">☰</button>
-  <div class="header-logo">mio</div>
+  <button class="menu-toggle" id="menu-toggle" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">☰</button>
+  <img class="header-logo" src="/static/img/logo.png" alt="MIO MEDIC" width="46" height="46"/>
   <div class="header-divider"></div>
   <div class="header-sub">Medicina Integral<br>Oncológica &amp; Estética</div>
   <div class="header-spacer"></div>
@@ -24,32 +33,38 @@
     <div class="header-date" id="header-date"></div>
     <div class="header-time" id="header-time"></div>
   </div>
-  <div class="header-user-desktop" style="display:flex;align-items:center;gap:.6rem;margin-left:1rem;">
-    <span id="user-display" style="font-size:.75rem;color:#A89888;font-weight:500;"></span>
-    <button onclick="abrirCambiarPassword()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Clave</button>
-    <button onclick="logout()" style="background:none;border:1.5px solid #D5CCC4;border-radius:6px;padding:.3rem .7rem;font-size:.7rem;color:#6B5B4F;cursor:pointer;font-family:inherit;">Salir</button>
+  <div class="header-user-desktop">
+    <span id="user-display" class="header-user-name"></span>
+    <button class="header-action-btn btn-theme-toggle" id="btn-header-theme" type="button" aria-label="Cambiar tema"><span class="theme-icon" aria-hidden="true"></span></button>
+    <button class="header-action-btn" id="btn-header-2fa">2FA</button>
+    <button class="header-action-btn" id="btn-header-password">Clave</button>
+    <button class="header-action-btn" id="btn-header-logout">Salir</button>
   </div>
 </header>
 
 <div class="layout">
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">Sistema de Turnos</div>
-    <nav>
-      <div class="nav-item active" data-view="view-dashboard"><span class="nav-icon">◈</span> Dashboard</div>
-      <div class="nav-item" data-view="view-agenda"><span class="nav-icon">◷</span> Agenda</div>
-      <div class="nav-item" data-view="view-turnos"><span class="nav-icon">≡</span> Turnos</div>
-      <div class="nav-divider"></div>
-      <div class="nav-item" data-view="view-pacientes"><span class="nav-icon">◎</span> Pacientes</div>
-      <div class="nav-item" data-view="view-profesionales"><span class="nav-icon">✦</span> Profesionales</div>
-      <div class="nav-divider sidebar-user-mobile"></div>
-      <div class="nav-item sidebar-user-mobile" id="sidebar-user-name" style="font-size:.78rem;color:#A89888;pointer-events:none;"></div>
-      <div class="nav-item sidebar-user-mobile" onclick="abrirCambiarPassword();document.querySelector('.sidebar').classList.remove('open')"><span class="nav-icon">◐</span> Cambiar clave</div>
-      <div class="nav-item sidebar-user-mobile" onclick="logout()"><span class="nav-icon">↗</span> Cerrar sesion</div>
+    <nav aria-label="Navegación principal">
+      <ul class="nav-list" role="list">
+        <li><button type="button" class="nav-item active" data-view="view-dashboard" aria-current="page" title="Atajo: 1"><span class="nav-icon" aria-hidden="true">◈</span> Dashboard <kbd class="nav-kbd" aria-hidden="true">1</kbd></button></li>
+        <li><button type="button" class="nav-item" data-view="view-agenda" title="Atajo: 2"><span class="nav-icon" aria-hidden="true">◷</span> Agenda <kbd class="nav-kbd" aria-hidden="true">2</kbd></button></li>
+        <li><button type="button" class="nav-item" data-view="view-turnos" title="Atajo: 3"><span class="nav-icon" aria-hidden="true">≡</span> Turnos <kbd class="nav-kbd" aria-hidden="true">3</kbd></button></li>
+        <li role="separator" class="nav-divider"></li>
+        <li><button type="button" class="nav-item" data-view="view-pacientes" title="Atajo: 4"><span class="nav-icon" aria-hidden="true">◎</span> Pacientes <kbd class="nav-kbd" aria-hidden="true">4</kbd></button></li>
+        <li><button type="button" class="nav-item" data-view="view-profesionales" title="Atajo: 5"><span class="nav-icon" aria-hidden="true">✦</span> Profesionales <kbd class="nav-kbd" aria-hidden="true">5</kbd></button></li>
+        <li class="admin-only"><button type="button" class="nav-item" data-view="view-audit" title="Atajo: 6"><span class="nav-icon" aria-hidden="true">⎙</span> Auditoría <kbd class="nav-kbd" aria-hidden="true">6</kbd></button></li>
+        <li role="separator" class="nav-divider sidebar-user-mobile"></li>
+        <li class="sidebar-user-mobile"><span class="nav-item nav-item-readonly" id="sidebar-user-name"></span></li>
+        <li class="sidebar-user-mobile"><button type="button" class="nav-item btn-theme-toggle" id="sidebar-theme"><span class="theme-icon" aria-hidden="true"></span> <span class="theme-label">Tema</span></button></li>
+        <li class="sidebar-user-mobile"><button type="button" class="nav-item" id="sidebar-password"><span class="nav-icon" aria-hidden="true">◐</span> Cambiar clave</button></li>
+        <li class="sidebar-user-mobile"><button type="button" class="nav-item" id="sidebar-logout"><span class="nav-icon" aria-hidden="true">↗</span> Cerrar sesión</button></li>
+      </ul>
     </nav>
   </aside>
 
-  <main class="main">
+  <main class="main" id="main-content" tabindex="-1">
 
     <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
@@ -59,20 +74,20 @@
           <div class="stat-num" id="dash-hoy">—</div>
           <div class="stat-lbl">Turnos hoy</div>
         </div>
-        <div class="stat-card" style="border-color:#4a85b5">
-          <div class="stat-num" id="dash-realizados" style="color:#2a5f8a">—</div>
+        <div class="stat-card stat-info">
+          <div class="stat-num" id="dash-realizados">—</div>
           <div class="stat-lbl">Realizados</div>
         </div>
-        <div class="stat-card" style="border-color:var(--success)">
-          <div class="stat-num" id="dash-confirmados" style="color:var(--success)">—</div>
+        <div class="stat-card stat-success">
+          <div class="stat-num" id="dash-confirmados">—</div>
           <div class="stat-lbl">Confirmados</div>
         </div>
-        <div class="stat-card" style="border-color:var(--warning)">
-          <div class="stat-num" id="dash-pendientes" style="color:var(--warning)">—</div>
+        <div class="stat-card stat-warning">
+          <div class="stat-num" id="dash-pendientes">—</div>
           <div class="stat-lbl">Pendientes</div>
         </div>
-        <div class="stat-card" style="border-color:var(--danger)">
-          <div class="stat-num" id="dash-ausentes" style="color:var(--danger)">—</div>
+        <div class="stat-card stat-danger">
+          <div class="stat-num" id="dash-ausentes">—</div>
           <div class="stat-lbl">Ausentes / Cancelados</div>
         </div>
       </div>
@@ -88,13 +103,14 @@
     <div class="view" id="view-agenda">
       <div class="cal-toolbar">
         <div class="cal-nav-group">
-          <button class="btn btn-outline btn-icon" id="btn-agenda-prev">◀</button>
-          <button class="btn btn-outline btn-icon" id="btn-agenda-next">▶</button>
+          <button class="btn btn-outline btn-icon" id="btn-agenda-prev" aria-label="Día anterior"><span aria-hidden="true">◀</span></button>
+          <button class="btn btn-outline btn-icon" id="btn-agenda-next" aria-label="Día siguiente"><span aria-hidden="true">▶</span></button>
         </div>
-        <input type="date" id="agenda-fecha"/>
+        <input type="date" id="agenda-fecha" aria-label="Fecha de la agenda"/>
         <button class="btn btn-outline" id="btn-agenda-hoy">Hoy</button>
         <span class="cal-fecha-titulo" id="agenda-titulo"></span>
       </div>
+      <div id="agenda-bloqueos-info" style="display:none;flex-wrap:wrap;gap:.35rem;align-items:center;margin:.25rem 0 .5rem"></div>
       <div class="cal-cols">
         <div class="cal-col-wrap">
           <div class="cal-col-header">Consultorio 1</div>
@@ -111,11 +127,21 @@
     <div class="view" id="view-turnos">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
         <div class="page-title" style="margin:0;border:none;padding:0">Lista de Turnos</div>
-        <button class="btn btn-outline" onclick="exportarTurnosCSV()">⬇ Exportar CSV</button>
+        <button class="btn btn-outline" id="btn-export-csv">⬇ Exportar Excel</button>
       </div>
-      <div class="search-bar">
-        <input type="date" id="filtro-fecha"/>
-        <input type="text" id="filtro-buscar-turno" placeholder="Buscar paciente..." style="max-width:220px"/>
+      <div class="search-bar" role="search">
+        <input type="date" id="filtro-fecha" aria-label="Filtrar por fecha"/>
+        <input type="search" id="filtro-buscar-turno" placeholder="Buscar paciente..." aria-label="Buscar turno por paciente" style="max-width:220px"/>
+        <select id="filtro-orden-turnos" aria-label="Ordenar turnos" style="max-width:220px">
+          <option value="fecha_desc">Fecha (más reciente primero)</option>
+          <option value="fecha_asc">Fecha (más antigua primero)</option>
+          <option value="apellido_asc">Apellido A–Z</option>
+          <option value="apellido_desc">Apellido Z–A</option>
+          <option value="nombre_asc">Nombre A–Z</option>
+          <option value="nombre_desc">Nombre Z–A</option>
+          <option value="hc_asc">HC ascendente</option>
+          <option value="hc_desc">HC descendente</option>
+        </select>
       </div>
       <div id="tabla-turnos" class="dash-turnos-list">
         <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
@@ -128,13 +154,38 @@
         <div class="page-title" style="margin:0;border:none;padding:0">Pacientes</div>
         <div style="display:flex;gap:.5rem;align-items:center">
           <span id="pacientes-count" style="font-size:.78rem;color:var(--muted)"></span>
-          <button class="btn btn-primary" onclick="abrirNuevoPaciente()">+ Nuevo</button>
+          <button class="btn btn-primary" title="Atajo: N (en Pacientes)" id="btn-nuevo-paciente">+ Nuevo <kbd class="nav-kbd fab-kbd">N</kbd></button>
         </div>
       </div>
-      <div class="search-bar">
-        <input type="text" id="buscar-paciente" placeholder="Buscar por nombre, apellido, DNI o HC..."/>
+      <div class="search-bar" role="search">
+        <input type="search" id="buscar-paciente" placeholder="Buscar por nombre, apellido, DNI o HC..." aria-label="Buscar paciente"/>
+        <select id="filtro-orden-pacientes" aria-label="Ordenar pacientes" style="max-width:220px">
+          <option value="apellido_asc">Apellido A–Z</option>
+          <option value="apellido_desc">Apellido Z–A</option>
+          <option value="nombre_asc">Nombre A–Z</option>
+          <option value="nombre_desc">Nombre Z–A</option>
+          <option value="nro_hc_asc">HC ascendente</option>
+          <option value="nro_hc_desc">HC descendente</option>
+        </select>
       </div>
       <div id="tabla-pacientes" class="dash-turnos-list">
+        <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- AUDITORIA (solo admin) -->
+    <div class="view" id="view-audit">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+        <div class="page-title" style="margin:0;border:none;padding:0">Registro de auditoría</div>
+        <button class="btn btn-outline" id="btn-audit-refresh">↻ Recargar</button>
+      </div>
+      <div class="search-bar" role="search">
+        <input type="search" id="audit-f-action" placeholder="Filtrar por acción (ej: login.ok)" aria-label="Filtrar por acción"/>
+        <input type="search" id="audit-f-username" placeholder="Usuario" aria-label="Filtrar por usuario"/>
+        <input type="search" id="audit-f-entity-type" placeholder="Entidad (paciente, turno, user)" aria-label="Filtrar por tipo de entidad"/>
+        <input type="number" id="audit-f-limit" placeholder="Máx. 1000" value="200" min="1" max="1000" aria-label="Máximo de resultados" style="max-width:120px"/>
+      </div>
+      <div id="audit-lista" class="dash-turnos-list">
         <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
       </div>
     </div>
@@ -143,7 +194,7 @@
     <div class="view" id="view-profesionales">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
         <div class="page-title" style="margin:0;border:none;padding:0">Profesionales</div>
-        <button class="btn btn-primary" onclick="abrirNuevoMedico()">+ Nuevo Profesional</button>
+        <button class="btn btn-primary" title="Atajo: N (en Profesionales)" id="btn-nuevo-medico">+ Nuevo Profesional <kbd class="nav-kbd fab-kbd">N</kbd></button>
       </div>
       <div class="prof-grid" id="prof-grid">
         <div style="color:var(--muted);font-size:.85rem">Cargando...</div>
@@ -154,60 +205,64 @@
 </div>
 
 <!-- MODAL: NUEVO/EDITAR TURNO -->
-<div class="modal-overlay" id="modal-turno">
+<div class="modal-overlay" id="modal-turno" role="dialog" aria-modal="true" aria-labelledby="modal-turno-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modal-turno-titulo">Nuevo Turno</span>
-      <button class="modal-close" onclick="cerrarModal('modal-turno')">✕</button>
+      <h2 class="modal-title" id="modal-turno-titulo">Nuevo Turno</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-turno">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group full">
-          <label>Paciente *</label>
+          <label for="turno-paciente-input">Paciente <span aria-hidden="true">*</span></label>
           <div style="display:flex;gap:.5rem;align-items:center;">
-            <input type="text" id="turno-paciente-input" placeholder="Apellido Nombre" autocomplete="off" style="flex:1;text-transform:uppercase"/>
-            <button type="button" id="btn-agregar-paciente" onclick="mostrarCamposPacienteNuevo()" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
+            <input type="text" id="turno-paciente-input" placeholder="Buscar paciente existente (opcional)" autocomplete="off" style="flex:1;text-transform:uppercase"/>
+            <button type="button" id="btn-agregar-paciente" style="display:none;white-space:nowrap;padding:.45rem .8rem;background:#6B5B4F;color:#fff;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;">+ Agregar paciente</button>
           </div>
           <input type="hidden" id="turno-paciente-id"/>
           <div id="turno-pac-info" class="turno-pac-info" style="display:none"></div>
           <div id="turno-new-pac-fields" class="turno-new-pac-fields">
-            <div class="form-group"><label>DNI *</label><input type="text" id="turno-new-dni" placeholder="DNI"/></div>
-            <div class="form-group"><label>Telefono *</label><input type="tel" id="turno-new-tel" placeholder="+54 11..."/></div>
-            <div class="form-group"><label>HC</label><input type="text" id="turno-new-hc" readonly style="background:#f5f0eb"/></div>
+            <div class="form-group"><label for="turno-new-nombre">Nombre <span aria-hidden="true">*</span></label><input type="text" id="turno-new-nombre" placeholder="Ej: LAURA" aria-required="true" style="text-transform:uppercase"/></div>
+            <div class="form-group"><label for="turno-new-apellido">Apellido <span aria-hidden="true">*</span></label><input type="text" id="turno-new-apellido" placeholder="Ej: GARCIA" aria-required="true" style="text-transform:uppercase"/></div>
+            <div class="form-group"><label for="turno-new-tel">Teléfono <span aria-hidden="true">*</span></label><input type="tel" id="turno-new-tel" placeholder="+54 11 ..." aria-required="true"/></div>
+            <div class="form-group"><label for="turno-new-email">Email <span aria-hidden="true">*</span></label><input type="email" id="turno-new-email" placeholder="paciente@correo.com" aria-required="true"/></div>
+            <div class="form-group"><label for="turno-new-dni">DNI</label><input type="text" id="turno-new-dni" placeholder="Sin puntos (opcional)"/></div>
+            <div class="form-group"><label for="turno-new-hc">HC</label><input type="text" id="turno-new-hc" readonly style="background:#f5f0eb"/></div>
+            <div class="form-group"><label for="turno-new-deriva">Deriva</label><input type="text" id="turno-new-deriva" placeholder="Nombre del derivante" style="text-transform:uppercase"/></div>
           </div>
         </div>
         <div class="form-group">
-          <label>Financiador</label>
-          <input type="text" id="turno-financiador" placeholder="Ej: OSDE" style="text-transform:uppercase"/>
+          <label for="turno-financiador">Financiador</label>
+          <input type="text" id="turno-financiador" list="datalist-financiadores" placeholder="Elegí del listado o escribí uno nuevo" autocomplete="off" style="text-transform:uppercase"/>
         </div>
         <div class="form-group">
-          <label>Plan</label>
-          <input type="text" id="turno-plan" placeholder="Ej: 210" style="text-transform:uppercase"/>
+          <label for="turno-plan">Plan</label>
+          <input type="text" id="turno-plan" list="datalist-planes" placeholder="Ej: 210" autocomplete="off" style="text-transform:uppercase"/>
         </div>
         <div class="form-group">
-          <label>Profesional *</label>
-          <select id="turno-medico" class="sel-medico"></select>
+          <label for="turno-medico">Profesional <span aria-hidden="true">*</span></label>
+          <select id="turno-medico" class="sel-medico" aria-required="true"></select>
         </div>
         <div class="form-group">
-          <label>Consultorio *</label>
-          <select id="turno-consultorio">
+          <label for="turno-consultorio">Consultorio <span aria-hidden="true">*</span></label>
+          <select id="turno-consultorio" aria-required="true">
             <option value="1">Consultorio 1</option>
             <option value="2">Consultorio 2</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Fecha y hora *</label>
-          <input type="datetime-local" id="turno-fecha-hora"/>
+          <label for="turno-fecha-hora">Fecha y hora <span aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="turno-fecha-hora" aria-required="true"/>
         </div>
         <div class="form-group">
-          <label>Duración</label>
+          <label for="turno-duracion">Duración</label>
           <select id="turno-duracion">
             <option value="45">45 minutos</option>
             <option value="60">60 minutos</option>
           </select>
         </div>
         <div class="form-group" id="campo-estado" style="display:none">
-          <label>Estado</label>
+          <label for="turno-estado">Estado</label>
           <select id="turno-estado">
             <option value="pendiente">Pendiente</option>
             <option value="confirmado">Confirmado</option>
@@ -217,84 +272,175 @@
           </select>
         </div>
         <div class="form-group full">
-          <label>Observaciones</label>
+          <label for="turno-obs">Observaciones</label>
           <textarea id="turno-obs" placeholder="Notas adicionales..."></textarea>
         </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-turno')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarTurno()">Guardar</button>
+      <button class="btn btn-outline" data-close-modal="modal-turno">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-turno">Guardar turno</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CAMBIAR ESTADO DE TURNO (solo desde Dashboard) -->
+<div class="modal-overlay" id="modal-estado" role="dialog" aria-modal="true" aria-labelledby="modal-estado-titulo" aria-hidden="true">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-estado-titulo">Cambiar estado</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-estado">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-estado-info" style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem"></div>
+      <div class="form-group">
+        <label for="estado-turno-select">Estado</label>
+        <select id="estado-turno-select">
+          <option value="pendiente">Pendiente</option>
+          <option value="confirmado">Confirmado</option>
+          <option value="ausente">Ausente</option>
+          <option value="cancelado">Cancelado</option>
+          <option value="realizado">Realizado</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close-modal="modal-estado">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-estado">Guardar</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: NUEVO/EDITAR PACIENTE -->
-<div class="modal-overlay" id="modal-paciente">
+<div class="modal-overlay" id="modal-paciente" role="dialog" aria-modal="true" aria-labelledby="modal-paciente-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modal-paciente-titulo">Nuevo Paciente</span>
-      <button class="modal-close" onclick="cerrarModal('modal-paciente')">✕</button>
+      <h2 class="modal-title" id="modal-paciente-titulo">Nuevo Paciente</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-paciente">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label>Nombre *</label><input type="text" id="pac-nombre" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Apellido *</label><input type="text" id="pac-apellido" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Teléfono</label><input type="tel" id="pac-tel" placeholder="+54 11 ..."/></div>
-        <div class="form-group"><label>Email</label><input type="email" id="pac-email"/></div>
-        <div class="form-group"><label>DNI</label><input type="text" id="pac-dni"/></div>
-        <div class="form-group"><label>N° Historia Clínica</label><input type="text" id="pac-hc"/></div>
-        <div class="form-group"><label>Financiador</label><input type="text" id="pac-financiador" placeholder="Ej: OSDE, SWISS MEDICAL" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Plan</label><input type="text" id="pac-plan" placeholder="Ej: 210" style="text-transform:uppercase"/></div>
-        <div class="form-group"><label>Deriva</label><input type="text" id="pac-deriva" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label for="pac-nombre">Nombre <span aria-hidden="true">*</span></label><input type="text" id="pac-nombre" placeholder="Ej: LAURA" aria-required="true" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label for="pac-apellido">Apellido <span aria-hidden="true">*</span></label><input type="text" id="pac-apellido" placeholder="Ej: GARCIA" aria-required="true" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label for="pac-tel">Teléfono <span aria-hidden="true">*</span></label><input type="tel" id="pac-tel" placeholder="+54 11 ..." aria-required="true"/></div>
+        <div class="form-group"><label for="pac-email">Email <span aria-hidden="true">*</span></label><input type="email" id="pac-email" placeholder="paciente@correo.com" aria-required="true"/></div>
+        <div class="form-group"><label for="pac-dni">DNI</label><input type="text" id="pac-dni" placeholder="Sin puntos"/></div>
+        <div class="form-group"><label for="pac-hc">N° Historia Clínica</label><input type="text" id="pac-hc" placeholder="Ej: 100"/></div>
+        <div class="form-group"><label for="pac-financiador">Financiador</label><input type="text" id="pac-financiador" list="datalist-financiadores" placeholder="Elegí del listado o escribí uno nuevo" autocomplete="off" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label for="pac-plan">Plan</label><input type="text" id="pac-plan" list="datalist-planes" placeholder="Ej: 210" autocomplete="off" style="text-transform:uppercase"/></div>
+        <div class="form-group"><label for="pac-deriva">Deriva</label><input type="text" id="pac-deriva" placeholder="Nombre del derivante" style="text-transform:uppercase"/></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-paciente')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarPaciente()">Guardar</button>
+      <button class="btn btn-outline" data-close-modal="modal-paciente">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-paciente">Guardar paciente</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: NUEVO/EDITAR PROFESIONAL -->
-<div class="modal-overlay" id="modal-medico">
+<div class="modal-overlay" id="modal-medico" role="dialog" aria-modal="true" aria-labelledby="modal-medico-titulo" aria-hidden="true">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="modal-medico-titulo">Nuevo Profesional</span>
-      <button class="modal-close" onclick="cerrarModal('modal-medico')">✕</button>
+      <h2 class="modal-title" id="modal-medico-titulo">Nuevo Profesional</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-medico">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label>Nombre *</label><input type="text" id="med-nombre"/></div>
-        <div class="form-group"><label>Apellido *</label><input type="text" id="med-apellido"/></div>
+        <div class="form-group"><label for="med-nombre">Nombre <span aria-hidden="true">*</span></label><input type="text" id="med-nombre" placeholder="Ej: María" aria-required="true"/></div>
+        <div class="form-group"><label for="med-apellido">Apellido <span aria-hidden="true">*</span></label><input type="text" id="med-apellido" placeholder="Ej: Garrido" aria-required="true"/></div>
         <div class="form-group">
-          <label>Especialidad *</label>
-          <select id="med-especialidad" class="sel-especialidad"></select>
+          <label for="med-especialidad">Especialidad <span aria-hidden="true">*</span></label>
+          <div style="display:flex;gap:.5rem;align-items:stretch">
+            <select id="med-especialidad" class="sel-especialidad" aria-required="true" style="flex:1"></select>
+            <button type="button" class="btn btn-outline" id="btn-nueva-especialidad" title="Agregar nueva especialidad" aria-label="Agregar nueva especialidad">+ Nueva</button>
+          </div>
         </div>
-        <div class="form-group"><label>Matrícula</label><input type="text" id="med-matricula" placeholder="MP 12345"/></div>
-        <div class="form-group"><label>Teléfono</label><input type="tel" id="med-telefono"/></div>
-        <div class="form-group"><label>Email</label><input type="email" id="med-email"/></div>
-        <div class="form-group full"><label>Email Google Calendar (para sincronizar turnos)</label><input type="email" id="med-gcal" placeholder="dr.apellido@gmail.com — dejá vacío si no querés sincronizar"/></div>
+        <div class="form-group"><label for="med-matricula">Matrícula</label><input type="text" id="med-matricula" placeholder="MP 12345"/></div>
+        <div class="form-group"><label for="med-telefono">Teléfono</label><input type="tel" id="med-telefono" placeholder="+54 11 ..."/></div>
+        <div class="form-group"><label for="med-email">Email</label><input type="email" id="med-email" placeholder="profesional@correo.com"/></div>
+        <div class="form-group full"><label for="med-gcal">Email Google Calendar (para sincronizar turnos)</label><input type="email" id="med-gcal" placeholder="dr.apellido@gmail.com — dejá vacío si no querés sincronizar"/></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-medico')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarMedico()">Guardar</button>
+      <button class="btn btn-outline" data-close-modal="modal-medico">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-medico">Guardar profesional</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GESTOR DE ESPECIALIDADES -->
+<div class="modal-overlay" id="modal-especialidad" role="dialog" aria-modal="true" aria-labelledby="modal-especialidad-titulo" aria-hidden="true">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-especialidad-titulo">Especialidades</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-especialidad">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="esp-nombre">Agregar especialidad</label>
+        <div style="display:flex;gap:.5rem;align-items:stretch">
+          <input type="text" id="esp-nombre" placeholder="Ej: Oncología" maxlength="60" style="flex:1"/>
+          <button type="button" class="btn btn-primary" id="btn-save-especialidad">Agregar</button>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:.75rem 0 .35rem">Existentes</div>
+      <ul id="esp-list" class="esp-list" style="list-style:none;padding:0;margin:0"></ul>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close-modal="modal-especialidad">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NUEVO BLOQUEO -->
+<div class="modal-overlay" id="modal-bloqueo" role="dialog" aria-modal="true" aria-labelledby="modal-bloqueo-titulo" aria-hidden="true">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-bloqueo-titulo">Bloquear día / horario</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-bloqueo">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label for="bloq-medico">Profesional <span aria-hidden="true">*</span></label>
+          <select id="bloq-medico" class="sel-medico" aria-required="true"></select>
+        </div>
+        <div class="form-group">
+          <label for="bloq-inicio">Desde <span aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="bloq-inicio" aria-required="true"/>
+        </div>
+        <div class="form-group">
+          <label for="bloq-fin">Hasta <span aria-hidden="true">*</span></label>
+          <input type="datetime-local" id="bloq-fin" aria-required="true"/>
+        </div>
+        <div class="form-group full">
+          <label for="bloq-motivo">Motivo</label>
+          <input type="text" id="bloq-motivo" placeholder="Ej: licencia, congreso, feriado" maxlength="120"/>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.5rem">
+        El bloqueo impide agendar turnos con el profesional en ese rango, en cualquier consultorio.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close-modal="modal-bloqueo">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-bloqueo">Guardar bloqueo</button>
     </div>
   </div>
 </div>
 
 <!-- MODAL: AGREGAR HORARIO -->
-<div class="modal-overlay" id="modal-horario">
+<div class="modal-overlay" id="modal-horario" role="dialog" aria-modal="true" aria-labelledby="modal-horario-titulo" aria-hidden="true">
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
-      <span class="modal-title">Agregar Horario</span>
-      <button class="modal-close" onclick="cerrarModal('modal-horario')">✕</button>
+      <h2 class="modal-title" id="modal-horario-titulo">Agregar Horario</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-horario">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group full">
-          <label>Día</label>
+          <label for="hor-dia">Día</label>
           <select id="hor-dia">
             <option value="0">Lunes</option>
             <option value="1">Martes</option>
@@ -303,10 +449,10 @@
             <option value="4">Viernes</option>
           </select>
         </div>
-        <div class="form-group"><label>Desde</label><input type="time" id="hor-inicio" value="09:00"/></div>
-        <div class="form-group"><label>Hasta</label><input type="time" id="hor-fin" value="13:00"/></div>
+        <div class="form-group"><label for="hor-inicio">Desde</label><input type="time" id="hor-inicio" value="09:00"/></div>
+        <div class="form-group"><label for="hor-fin">Hasta</label><input type="time" id="hor-fin" value="13:00"/></div>
         <div class="form-group full">
-          <label>Consultorio</label>
+          <label for="hor-consultorio">Consultorio</label>
           <select id="hor-consultorio">
             <option value="1">Consultorio 1</option>
             <option value="2">Consultorio 2</option>
@@ -315,20 +461,20 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-horario')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarHorario()">Agregar</button>
+      <button class="btn btn-outline" data-close-modal="modal-horario">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-horario">Agregar horario</button>
     </div>
   </div>
 </div>
 
 <!-- FAB solo visible en agenda -->
-<button id="btn-fab" class="btn btn-primary fab" style="display:none" onclick="abrirNuevoTurno()">+ Turno</button>
+<button id="btn-fab" class="btn btn-primary fab" style="display:none" title="Atajo: N (en Agenda)">+ Turno <kbd class="nav-kbd fab-kbd">N</kbd></button>
 <!-- MODAL: TURNO CREADO -->
-<div class="modal-overlay" id="modal-turno-creado">
+<div class="modal-overlay" id="modal-turno-creado" role="dialog" aria-modal="true" aria-labelledby="modal-turno-creado-titulo" aria-hidden="true">
   <div class="modal" style="max-width:420px">
     <div class="modal-header" style="background:var(--success-lt);border-color:var(--success)">
-      <span class="modal-title" style="color:#4a7550">Turno agendado</span>
-      <button class="modal-close" onclick="cerrarModal('modal-turno-creado')">✕</button>
+      <span class="modal-title" id="modal-turno-creado-titulo" style="color:var(--success)">Turno agendado</span>
+      <button class="modal-close" onclick="cerrarModal('modal-turno-creado')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
       <div id="turno-creado-resumen" style="font-size:.88rem;line-height:1.8"></div>
@@ -338,24 +484,75 @@
     </div>
   </div>
 </div>
-
 <!-- MODAL: CAMBIAR CONTRASEÑA -->
-<div class="modal-overlay" id="modal-password">
+<div class="modal-overlay" id="modal-password" role="dialog" aria-modal="true" aria-labelledby="modal-password-titulo" aria-hidden="true">
   <div class="modal" style="max-width:380px">
     <div class="modal-header">
-      <span class="modal-title">Cambiar contraseña</span>
-      <button class="modal-close" onclick="cerrarModal('modal-password')">✕</button>
+      <h2 class="modal-title" id="modal-password-titulo">Cambiar contraseña</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-password">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group full"><label>Contraseña actual</label><input type="password" id="pw-current"/></div>
-        <div class="form-group full"><label>Nueva contraseña</label><input type="password" id="pw-new"/></div>
-        <div class="form-group full"><label>Confirmar nueva contraseña</label><input type="password" id="pw-confirm"/></div>
+        <div class="form-group full"><label for="pw-current">Contraseña actual <span aria-hidden="true">*</span></label><input type="password" id="pw-current" placeholder="Tu contraseña actual" autocomplete="current-password" aria-required="true"/></div>
+        <div class="form-group full"><label for="pw-new">Nueva contraseña <span aria-hidden="true">*</span></label><input type="password" id="pw-new" placeholder="Mínimo 4 caracteres" autocomplete="new-password" aria-required="true"/></div>
+        <div class="form-group full"><label for="pw-confirm">Confirmar nueva contraseña <span aria-hidden="true">*</span></label><input type="password" id="pw-confirm" placeholder="Repetí la nueva contraseña" autocomplete="new-password" aria-required="true"/></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modal-password')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarPassword()">Guardar</button>
+      <button class="btn btn-outline" data-close-modal="modal-password">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-password">Cambiar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 2FA -->
+<div class="modal-overlay" id="modal-2fa" role="dialog" aria-modal="true" aria-labelledby="modal-2fa-titulo" aria-hidden="true">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-2fa-titulo">Autenticación de dos factores</h2>
+      <button class="modal-close" type="button" aria-label="Cerrar diálogo" data-close-modal="modal-2fa">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="tfa-status-block" style="margin-bottom:1rem;font-size:.88rem">Cargando…</div>
+
+      <div id="tfa-setup-block" style="display:none">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+          Abrí tu app de autenticación (Google Authenticator, Authy, 1Password, etc.)
+          y elegí <b>“Agregar cuenta” → “Ingresar una clave de configuración”</b>.
+          Copiá la clave de abajo. Luego ingresá el código de 6 dígitos que te genere la app.
+        </p>
+        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Clave secreta (Base32)</div>
+        <div style="font-family:monospace;font-size:.95rem;letter-spacing:.12em;word-break:break-all;background:#f5f0eb;padding:.6rem .8rem;border-radius:6px;margin-bottom:.5rem" id="tfa-secret-line"></div>
+        <button class="btn btn-outline" type="button" id="tfa-copy-btn" style="font-size:.75rem;padding:.35rem .7rem;margin-bottom:.75rem">Copiar clave</button>
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:.75rem">
+          En mobile podés tocar este link para abrir directamente la app:
+          <a id="tfa-otpauth-link" href="#" style="word-break:break-all;color:#6B5B4F">otpauth://…</a>
+        </div>
+        <div class="form-group full">
+          <label for="tfa-activate-code">Código de verificación</label>
+          <input type="text" id="tfa-activate-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6 dígitos" autocomplete="one-time-code"/>
+        </div>
+        <button class="btn btn-primary" id="btn-2fa-activate" style="width:100%">Activar 2FA</button>
+      </div>
+
+      <div id="tfa-disable-block" style="display:none">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+          Para desactivar 2FA, confirmá tu contraseña.
+        </p>
+        <div class="form-group full">
+          <label for="tfa-disable-pw">Contraseña actual</label>
+          <input type="password" id="tfa-disable-pw" autocomplete="current-password"/>
+        </div>
+        <button class="btn btn-outline" id="btn-2fa-disable" style="width:100%">Desactivar 2FA</button>
+      </div>
+
+      <div id="tfa-start-block" style="display:none">
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem">
+          2FA no está activo. Podés activarlo con una app como Google
+          Authenticator o Authy para reforzar la seguridad de tu cuenta.
+        </p>
+        <button class="btn btn-primary" id="btn-2fa-start" style="width:100%">Iniciar activación de 2FA</button>
+      </div>
     </div>
   </div>
 </div>
@@ -368,14 +565,16 @@
     <div id="tutorial-title" style="font-size:1rem;font-weight:600;color:#333;margin-bottom:.5rem"></div>
     <div id="tutorial-desc" style="font-size:.85rem;color:#666;line-height:1.5;margin-bottom:1.2rem"></div>
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <button onclick="tutorialSkip()" style="background:none;border:none;font-size:.8rem;color:#999;cursor:pointer;font-family:inherit">Saltar</button>
-      <button id="tutorial-next-btn" onclick="tutorialNext()" style="background:#6B5B4F;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-size:.85rem;cursor:pointer;font-family:inherit;font-weight:500">Siguiente</button>
+      <button id="tutorial-skip-btn" style="background:none;border:none;font-size:.8rem;color:#999;cursor:pointer;font-family:inherit">Saltar</button>
+      <button id="tutorial-next-btn" style="background:#6B5B4F;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-size:.85rem;cursor:pointer;font-family:inherit;font-weight:500">Siguiente</button>
     </div>
   </div>
   <div id="tutorial-highlight" style="position:fixed;z-index:9999;border:3px solid #6B5B4F;border-radius:10px;pointer-events:none;transition:all .4s ease;box-shadow:0 0 0 4000px rgba(0,0,0,.45)"></div>
 </div>
 
-<div id="toast-container"></div>
-<script src="/static/js/app.js?v=16"></script>
+<div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+<datalist id="datalist-financiadores"></datalist>
+<datalist id="datalist-planes"></datalist>
+<script src="/static/js/app.js?v=20"></script>
 </body>
 </html>
