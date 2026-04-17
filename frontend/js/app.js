@@ -216,20 +216,16 @@ function initPacienteAutocomplete(inputId, hiddenId) {
     hidden.value = p.id;
     drop.style.display = "none";
     if ($("turno-financiador")) $("turno-financiador").value = p.financiador || "";
-    if ($("turno-plan")) $("turno-plan").value = p.plan || "";
+    if ($("turno-plan"))        $("turno-plan").value        = p.plan || "";
+    if ($("turno-new-nombre"))   $("turno-new-nombre").value   = p.nombre   || "";
+    if ($("turno-new-apellido")) $("turno-new-apellido").value = p.apellido || "";
+    if ($("turno-new-tel"))      $("turno-new-tel").value      = p.telefono || "";
+    if ($("turno-new-email"))    $("turno-new-email").value    = p.email    || "";
+    if ($("turno-new-dni"))      $("turno-new-dni").value      = p.dni      || "";
+    if ($("turno-new-hc"))       $("turno-new-hc").value       = p.nro_hc   || "";
+    if ($("turno-new-deriva"))   $("turno-new-deriva").value   = p.deriva   || "";
     _resetBotonAgregarPaciente();
-    // Mostrar info del paciente
-    const infoEl = $("turno-pac-info");
-    if (infoEl) {
-      const parts = [];
-      if (p.nro_hc) parts.push(`HC: <span>${esc(p.nro_hc)}</span>`);
-      if (p.dni) parts.push(`DNI: <span>${esc(p.dni)}</span>`);
-      if (p.telefono) parts.push(`Tel: <span>${esc(p.telefono)}</span>`);
-      infoEl.innerHTML = parts.join(" &nbsp;|&nbsp; ");
-      infoEl.style.display = parts.length ? "flex" : "none";
-    }
-    // Ocultar campos de paciente nuevo
-    if ($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
+    if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
   }
 
   function renderDrop(lista) {
@@ -275,7 +271,16 @@ function initPacienteAutocomplete(inputId, hiddenId) {
       return;
     }
     const q = raw.toLowerCase();
+    const habiaSeleccion = !!hidden.value;
     hidden.value = "";
+    // Si veniamos de una selección válida y el texto ya no la matchea, limpiar
+    // los campos autocompletados para no mezclar datos del paciente anterior.
+    if (habiaSeleccion) {
+      ["turno-new-nombre","turno-new-apellido","turno-new-tel","turno-new-email",
+       "turno-new-dni","turno-new-hc","turno-new-deriva"].forEach(id => {
+        if ($(id)) $(id).value = "";
+      });
+    }
     if (!q) { drop.style.display="none"; if($("btn-agregar-paciente"))$("btn-agregar-paciente").style.display="none"; return; }
     // Multi-token: "sanchez valentina" matchea paciente cuyo "apellido nombre"
     // contiene TODOS los tokens. Evita falsos negativos cuando el input
@@ -1278,9 +1283,6 @@ function _resetBotonAgregarPaciente() {
 }
 
 async function mostrarCamposPacienteNuevo() {
-  const fields = $("turno-new-pac-fields");
-  if (!fields) return;
-  fields.classList.add("open");
   $("btn-agregar-paciente").textContent = "Guardar paciente";
   $("btn-agregar-paciente").onclick = agregarPacienteDesdeTurno;
   // Prellenar nombre/apellido desde lo tipeado (convención: "APELLIDO NOMBRE").
@@ -1295,14 +1297,14 @@ async function mostrarCamposPacienteNuevo() {
       $("turno-new-nombre").value = partes.join(" ") || "";
     }
   }
-  // Auto-generar HC
-  try {
-    const res = await api("/pacientes/next-hc");
-    $("turno-new-hc").value = res.next_hc;
-  } catch(e) { $("turno-new-hc").value = ""; }
-  // Ocultar info de paciente existente
+  // Auto-generar HC si no hay valor
+  if (!$("turno-new-hc").value) {
+    try {
+      const res = await api("/pacientes/next-hc");
+      $("turno-new-hc").value = res.next_hc;
+    } catch(e) { $("turno-new-hc").value = ""; }
+  }
   if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
-  // Foco en el que quedó vacío (o Nombre por default)
   (($("turno-new-apellido")?.value ? $("turno-new-nombre") : $("turno-new-apellido")) || {}).focus?.();
 }
 
@@ -1331,18 +1333,7 @@ async function agregarPacienteDesdeTurno() {
     $("turno-paciente-id").value = nuevo.id;
     $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
     _resetBotonAgregarPaciente();
-    $("turno-new-pac-fields").classList.remove("open");
-    // Mostrar info
-    const infoEl = $("turno-pac-info");
-    if (infoEl) {
-      const parts = [];
-      if (nuevo.nro_hc)   parts.push(`HC: <span>${esc(nuevo.nro_hc)}</span>`);
-      if (nuevo.dni)      parts.push(`DNI: <span>${esc(nuevo.dni)}</span>`);
-      if (nuevo.telefono) parts.push(`Tel: <span>${esc(nuevo.telefono)}</span>`);
-      if (nuevo.email)    parts.push(`Email: <span>${esc(nuevo.email)}</span>`);
-      infoEl.innerHTML = parts.join(" &nbsp;|&nbsp; ");
-      infoEl.style.display = parts.length ? "flex" : "none";
-    }
+    if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
     toast("Paciente agregado a la base de datos","success");
   } catch(e) { toast(e.message,"error"); }
 }
@@ -1358,7 +1349,6 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   $("turno-obs").value="";
   _resetBotonAgregarPaciente();
   if($("turno-pac-info")) $("turno-pac-info").style.display="none";
-  if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
   if($("turno-new-nombre")) $("turno-new-nombre").value="";
   if($("turno-new-apellido")) $("turno-new-apellido").value="";
   if($("turno-new-dni")) $("turno-new-dni").value="";
@@ -1381,27 +1371,17 @@ async function abrirEditarTurno(id) {
   $("turno-financiador").value=t.paciente?.financiador||""; $("turno-plan").value=t.paciente?.plan||"";
   $("turno-obs").value=t.observaciones||""; $("turno-estado").value=t.estado;
   _resetBotonAgregarPaciente();
-  if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
-  if($("turno-new-nombre")) $("turno-new-nombre").value="";
-  if($("turno-new-apellido")) $("turno-new-apellido").value="";
-  if($("turno-new-dni")) $("turno-new-dni").value="";
-  if($("turno-new-tel")) $("turno-new-tel").value="";
-  if($("turno-new-email")) $("turno-new-email").value="";
-  if($("turno-new-hc")) $("turno-new-hc").value="";
-  if($("turno-new-deriva")) $("turno-new-deriva").value="";
+  // Popular los campos del paciente del turno que se edita.
+  const p = t.paciente || {};
+  if($("turno-new-nombre"))   $("turno-new-nombre").value   = p.nombre   || "";
+  if($("turno-new-apellido")) $("turno-new-apellido").value = p.apellido || "";
+  if($("turno-new-tel"))      $("turno-new-tel").value      = p.telefono || "";
+  if($("turno-new-email"))    $("turno-new-email").value    = p.email    || "";
+  if($("turno-new-dni"))      $("turno-new-dni").value      = p.dni      || "";
+  if($("turno-new-hc"))       $("turno-new-hc").value       = p.nro_hc   || "";
+  if($("turno-new-deriva"))   $("turno-new-deriva").value   = p.deriva   || "";
+  if($("turno-pac-info"))     $("turno-pac-info").style.display = "none";
   const drop=$("turno-paciente-input-drop"); if(drop) drop.style.display="none";
-  // Mostrar info del paciente
-  const p=t.paciente;
-  const infoEl=$("turno-pac-info");
-  if(infoEl && p){
-    const parts=[];
-    if(p.nro_hc)parts.push(`HC: <span>${esc(p.nro_hc)}</span>`);
-    if(p.dni)parts.push(`DNI: <span>${esc(p.dni)}</span>`);
-    if(p.telefono)parts.push(`Tel: <span>${esc(p.telefono)}</span>`);
-    if(p.email)parts.push(`Email: <span>${esc(p.email)}</span>`);
-    infoEl.innerHTML=parts.join(" &nbsp;|&nbsp; ");
-    infoEl.style.display=parts.length?"flex":"none";
-  }
   $("modal-turno").classList.add("open");
 }
 function abrirNuevoTurnoPaciente(pacienteId) {

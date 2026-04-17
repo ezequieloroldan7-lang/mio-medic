@@ -978,11 +978,11 @@ tr:hover td { background: var(--surface-hover); }
 }
 .turno-pac-info span { font-weight:500; color:var(--text); }
 
-/* New patient fields in turno modal */
+/* Patient fields in turno modal (siempre visibles — se autocompletan al
+   seleccionar del buscador, o se completan manualmente si el paciente no existe). */
 .turno-new-pac-fields {
-  display:none; gap:var(--sp-sm); flex-wrap:wrap; margin-top:.4rem;
+  display:flex; gap:var(--sp-sm); flex-wrap:wrap; margin-top:.4rem;
 }
-.turno-new-pac-fields.open { display:flex; }
 .turno-new-pac-fields .form-group { flex:1; min-width:120px; }
 
 /* ── Accesibilidad: foco visible global ─────────────────────── */
