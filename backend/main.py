@@ -253,7 +253,7 @@ app.include_router(medicos.public_router)
 
 # El resto requiere autenticación. Dependencies a nivel de router aplica a TODOS
 # los endpoints del router — cierra de golpe el agujero de CRUD público de pacientes,
-# turnos y médicos (incluyendo export.csv, disponibilidad, resumen, etc.).
+# turnos y médicos (incluyendo export.xlsx, disponibilidad, resumen, etc.).
 _auth_dep = [Depends(get_current_user)]
 app.include_router(pacientes.router, dependencies=_auth_dep)
 app.include_router(turnos.router,    dependencies=_auth_dep)
