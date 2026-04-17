@@ -212,7 +212,7 @@ function initPacienteAutocomplete(inputId, hiddenId) {
   input.parentElement.appendChild(drop);
 
   function _onSelectPaciente(p) {
-    input.value = `${p.apellido} ${p.nombre}`;
+    input.value = `${p.nombre} ${p.apellido}`;
     hidden.value = p.id;
     drop.style.display = "none";
     if ($("turno-financiador")) $("turno-financiador").value = p.financiador || "";
@@ -232,9 +232,9 @@ function initPacienteAutocomplete(inputId, hiddenId) {
     if (!lista.length) { drop.style.display="none"; return; }
     drop.innerHTML = lista.map(p => {
       const hc = p.nro_hc ? ` · HC ${esc(p.nro_hc)}` : "";
-      const label = `${esc(p.apellido)} ${esc(p.nombre)}`;
+      const label = `${esc(p.nombre)} ${esc(p.apellido)}`;
       return `<div class="pac-ac-item" data-id="${p.id}" data-label="${label}">
-        <span class="pac-ac-nombre">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+        <span class="pac-ac-nombre">${esc(p.nombre)} ${esc(p.apellido)}</span>
         <span class="pac-ac-hc">${hc}</span>
       </div>`;
     }).join("");
@@ -257,7 +257,7 @@ function initPacienteAutocomplete(inputId, hiddenId) {
   // "¿El texto del input coincide con el paciente seleccionado?"
   function _textMatchesSelection(text) {
     const p = _currentSelection();
-    return !!p && `${p.apellido} ${p.nombre}`.trim() === text.trim();
+    return !!p && `${p.nombre} ${p.apellido}`.trim() === text.trim();
   }
 
   input.addEventListener("input", function() {
@@ -591,9 +591,9 @@ async function renderDashboard() {
           return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
 
             <span class="dash-turno-hora">${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
-            <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
+            <span class="dash-turno-paciente">${esc(p?.nombre)} ${esc(p?.apellido)}</span>
             <span class="dash-turno-consultorio">C${t.consultorio}</span>
-            <span class="dash-turno-medico">${esc(t.medico?.apellido)}</span>
+            <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)}</span>
             <span class="badge badge-${t.estado}">${t.estado}</span>
             <span class="dash-turno-actions"><button class="btn btn-sm btn-outline" data-action="editar-turno" data-id="${t.id}">Editar</button></span>
             ${infoHtml}
@@ -787,7 +787,7 @@ function chipInnerHTML(t) {
     ? `<span class="chip-obs" title="${esc(t.observaciones)}">📝 ${esc(t.observaciones)}</span>`
     : "";
   return `
-    <span class="chip-nombre">${esc(t.paciente?.apellido)}, ${esc(t.paciente?.nombre)}</span>
+    <span class="chip-nombre">${esc(t.paciente?.nombre)} ${esc(t.paciente?.apellido)}</span>
     <span class="chip-hc">${hc}${hc ? " · " : ""}${hIni}–${hFin}</span>
     <span class="chip-esp">${prof}${prof && esp ? " · " : ""}${esp}</span>
     ${obs}`;
@@ -864,7 +864,7 @@ async function renderTurnos(q) {
       const infoHtml=info.length?`<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>`:"";
       return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
         <span class="dash-turno-hora">${fmtFechaCorta(t.fecha_hora_inicio)} ${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
-        <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
+        <span class="dash-turno-paciente">${esc(p?.nombre)} ${esc(p?.apellido)}</span>
         <span class="dash-turno-consultorio">C${t.consultorio}</span>
         <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)} — ${esc(t.medico?.especialidad?.nombre||"")}</span>
         <span class="badge badge-${t.estado}">${t.estado}</span>
@@ -986,7 +986,7 @@ async function renderPacientes(q) {
           if (p.financiador) info.push(esc(p.financiador) + (p.plan ? " — " + esc(p.plan) : ""));
           const infoStr = info.length ? `<span style="font-size:.78rem;color:var(--muted);display:inline-flex;gap:.6rem;flex-wrap:wrap">${info.map(i=>`<span>${i}</span>`).join("")}</span>` : "";
           return `<div class="dash-turno-card pac-card" style="align-items:center">
-            <span class="dash-turno-paciente" style="font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
+            <span class="dash-turno-paciente" style="font-weight:600">${esc(p.nombre)} ${esc(p.apellido)}</span>
             ${infoStr}
             <span class="pac-actions" style="margin-left:auto;display:flex;gap:.35rem;flex-shrink:0">
               <button class="btn btn-sm btn-primary" data-action="nuevo-turno-paciente" data-id="${p.id}">Turno</button>
@@ -1321,16 +1321,16 @@ function _resetBotonAgregarPaciente() {
 async function mostrarCamposPacienteNuevo() {
   $("btn-agregar-paciente").textContent = "Guardar paciente";
   $("btn-agregar-paciente").onclick = agregarPacienteDesdeTurno;
-  // Prellenar nombre/apellido desde lo tipeado (convención: "APELLIDO NOMBRE").
+  // Prellenar nombre/apellido desde lo tipeado (convención: "NOMBRE APELLIDO").
   // La secretaria puede corregir si se confundió el orden antes de guardar.
   const tipeado = ($("turno-paciente-input").value || "").trim().toUpperCase();
   if (tipeado) {
     const partes = tipeado.split(/\s+/);
-    if ($("turno-new-apellido") && !$("turno-new-apellido").value) {
-      $("turno-new-apellido").value = partes.shift() || "";
-    }
     if ($("turno-new-nombre") && !$("turno-new-nombre").value) {
-      $("turno-new-nombre").value = partes.join(" ") || "";
+      $("turno-new-nombre").value = partes.shift() || "";
+    }
+    if ($("turno-new-apellido") && !$("turno-new-apellido").value) {
+      $("turno-new-apellido").value = partes.join(" ") || "";
     }
   }
   // Auto-generar HC si no hay valor
@@ -1341,7 +1341,7 @@ async function mostrarCamposPacienteNuevo() {
     } catch(e) { $("turno-new-hc").value = ""; }
   }
   if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
-  (($("turno-new-apellido")?.value ? $("turno-new-nombre") : $("turno-new-apellido")) || {}).focus?.();
+  (($("turno-new-nombre")?.value ? $("turno-new-apellido") : $("turno-new-nombre")) || {}).focus?.();
 }
 
 async function agregarPacienteDesdeTurno() {
@@ -1368,7 +1368,7 @@ async function agregarPacienteDesdeTurno() {
     })});
     pacientes.push(nuevo);
     $("turno-paciente-id").value = nuevo.id;
-    $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
+    $("turno-paciente-input").value = `${nuevo.nombre} ${nuevo.apellido}`;
     _resetBotonAgregarPaciente();
     if ($("turno-pac-info")) $("turno-pac-info").style.display = "none";
     toast("Paciente agregado a la base de datos","success");
@@ -1402,7 +1402,7 @@ async function abrirEditarTurno(id) {
   const t=await api(`/turnos/${id}`); turnoEditing=id;
   setModalTitle("modal-turno-titulo","Editar Turno"); $("campo-estado").style.display="flex";
   $("turno-consultorio").value=t.consultorio; $("turno-fecha-hora").value=t.fecha_hora_inicio.slice(0,16);
-  $("turno-paciente-input").value=`${t.paciente?.apellido} ${t.paciente?.nombre}`;
+  $("turno-paciente-input").value=`${t.paciente?.nombre} ${t.paciente?.apellido}`;
   $("turno-paciente-id").value=t.paciente_id;
   $("turno-medico").value=t.medico_id; $("turno-duracion").value=t.duracion_minutos;
   $("turno-financiador").value=t.paciente?.financiador||""; $("turno-plan").value=t.paciente?.plan||"";
@@ -1424,7 +1424,7 @@ async function abrirEditarTurno(id) {
 function abrirNuevoTurnoPaciente(pacienteId) {
   abrirNuevoTurno();
   const p=pacientes.find(x=>x.id===pacienteId);
-  if(p){$("turno-paciente-input").value=`${p.apellido} ${p.nombre}`;$("turno-paciente-id").value=p.id;}
+  if(p){$("turno-paciente-input").value=`${p.nombre} ${p.apellido}`;$("turno-paciente-id").value=p.id;}
   navTo("view-agenda");
 }
 function _validarHorarioMedico(medicoId, fechaHora, consultorio) {
@@ -1496,7 +1496,7 @@ async function guardarTurno() {
         pacientes.push(nuevo);
         pacienteId = nuevo.id;
         $("turno-paciente-id").value = nuevo.id;
-        $("turno-paciente-input").value = `${nuevo.apellido} ${nuevo.nombre}`;
+        $("turno-paciente-input").value = `${nuevo.nombre} ${nuevo.apellido}`;
       } else {
         // Paciente existente: actualizar financiador/plan si cambiaron.
         const pac=pacientes.find(p=>p.id===pacienteId);
@@ -1532,7 +1532,7 @@ async function eliminarTurno(id) {
   let t;
   try { t = await api("/turnos/"+id); }
   catch(e){ toast("No se pudo cargar el turno: "+e.message,"error"); return; }
-  const paciente = `${t.paciente?.apellido||""} ${t.paciente?.nombre||""}`.trim() || "paciente desconocido";
+  const paciente = `${t.paciente?.nombre||""} ${t.paciente?.apellido||""}`.trim() || "paciente desconocido";
   const fechaHora = `${fmtFechaCorta(t.fecha_hora_inicio)} a las ${fmtHoraDisplay(t.fecha_hora_inicio)} hs`;
   const medico = t.medico ? `${t.medico.nombre} ${t.medico.apellido}` : "";
   const msg = `¿Eliminar el turno de ${paciente}\n${fechaHora}${medico?` — ${medico}`:""}?\n\nEsta acción no se puede deshacer.`;
@@ -1555,10 +1555,10 @@ async function abrirNuevoPaciente(prefill) {
   pacienteEditing=null; setModalTitle("modal-paciente-titulo","Nuevo Paciente");
   ["pac-nombre","pac-apellido","pac-tel","pac-email","pac-dni","pac-hc","pac-financiador","pac-plan","pac-deriva"].forEach(id=>$(id).value="");
   if (typeof prefill === "string" && prefill.trim()) {
-    // "APELLIDO NOMBRE" o solo "APELLIDO" → primer token a apellido, resto a nombre
+    // "NOMBRE APELLIDO" o solo "NOMBRE" → primer token a nombre, resto a apellido
     const partes = prefill.trim().split(/\s+/);
-    $("pac-apellido").value = (partes.shift() || "").toUpperCase();
-    $("pac-nombre").value   = partes.join(" ").toUpperCase();
+    $("pac-nombre").value   = (partes.shift() || "").toUpperCase();
+    $("pac-apellido").value = partes.join(" ").toUpperCase();
   }
   // Auto-generar HC (editable, sirve como sugerencia del próximo nro)
   try {
@@ -1566,7 +1566,7 @@ async function abrirNuevoPaciente(prefill) {
     $("pac-hc").value = res.next_hc;
   } catch(_) {}
   $("modal-paciente").classList.add("open");
-  (($("pac-apellido").value ? $("pac-nombre") : $("pac-apellido")) || {}).focus?.();
+  (($("pac-nombre").value ? $("pac-apellido") : $("pac-nombre")) || {}).focus?.();
 }
 async function abrirEditarPaciente(id) {
   const p=await api(`/pacientes/${id}`); pacienteEditing=id;
@@ -1599,7 +1599,7 @@ function _confirmarSiDuplicado({dni, nro_hc, excludeId} = {}) {
     ? `DNI ${dup.dni}`
     : `HC ${dup.nro_hc}`;
   const msg = `⚠ Ya existe un paciente con el mismo ${campo}:\n` +
-              `  ${dup.apellido}, ${dup.nombre}` +
+              `  ${dup.nombre} ${dup.apellido}` +
               (dup.nro_hc ? ` (HC ${dup.nro_hc})` : "") +
               `\n\n¿Guardar de todas formas?`;
   return confirm(msg);
