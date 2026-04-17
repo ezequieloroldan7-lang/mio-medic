@@ -762,15 +762,60 @@ function renderColumna(consultorio, turnos, fecha, bloqueos = []) {
     chip.style.top = `calc(${idx} * var(--slot-h) + 3px)`;
     chip.style.height = `calc(${spans} * var(--slot-h) - 6px)`;
     chip.innerHTML = chipInnerHTML(t);
-    chip.addEventListener("click", e => {
-      // Si se clickeó un botón de acción dentro del chip, dejar que la
-      // delegación de document lo maneje — no abrir el modal completo.
-      if (e.target.closest("[data-action]")) return;
-      e.stopPropagation();
-      abrirEditarTurno(t.id);
-    });
+    _attachChipDrag(chip, t, idx, fecha);
     grid.appendChild(chip);
   }
+}
+
+/* ── Drag vertical de chips para reagendar (mismo consultorio) ──
+ * Pointer events para que funcione también en touch. El drag se activa tras
+ * ~5px de movimiento; un tap en el cuerpo del chip no hace nada (los botones
+ * Editar/Cancelar/Eliminar ya cubren esas acciones). */
+let _dragData = null;
+function _attachChipDrag(chip, t, idxInicial, fecha) {
+  chip.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    if (e.target.closest("[data-action]")) return;
+    const slotH = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--slot-h")
+    ) || 44;
+    _dragData = { chip, t, idxInicial, fecha, slotH, startY: e.clientY, moved: false };
+    chip.setPointerCapture(e.pointerId);
+  });
+  chip.addEventListener("pointermove", e => {
+    if (!_dragData || _dragData.chip !== chip) return;
+    const dy = e.clientY - _dragData.startY;
+    if (!_dragData.moved && Math.abs(dy) < 5) return;
+    _dragData.moved = true;
+    chip.classList.add("chip-dragging");
+    chip.style.top = `calc(${_dragData.idxInicial} * var(--slot-h) + 3px + ${dy}px)`;
+  });
+  const endDrag = async (e) => {
+    if (!_dragData || _dragData.chip !== chip) return;
+    const data = _dragData; _dragData = null;
+    chip.classList.remove("chip-dragging");
+    if (!data.moved) return;
+    const dy = e.clientY - data.startY;
+    const deltaSlots = Math.round(dy / data.slotH);
+    if (deltaSlots === 0) { renderAgenda(); return; }
+    const horas = horasDisponibles();
+    const nuevoIdx = data.idxInicial + deltaSlots;
+    if (nuevoIdx < 0 || nuevoIdx >= horas.length) {
+      toast("Fuera de la grilla horaria","error"); renderAgenda(); return;
+    }
+    const nuevaHora = horas[nuevoIdx];
+    const nuevaFecha = `${data.fecha}T${nuevaHora}:00`;
+    try {
+      await api(`/turnos/${data.t.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ fecha_hora_inicio: nuevaFecha })
+      });
+      toast(`Turno movido a ${nuevaHora} ✓`,"success");
+    } catch(err) { toast(err.message,"error"); }
+    renderAgenda();
+  };
+  chip.addEventListener("pointerup", endDrag);
+  chip.addEventListener("pointercancel", endDrag);
 }
 
 function bloqueoSinDuplicar(arr) {
