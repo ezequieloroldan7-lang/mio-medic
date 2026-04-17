@@ -54,10 +54,12 @@ function toast(msg, type="info") {
   const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
   const el = document.createElement("div");
   el.className = `toast ${type}`;
+  // role=alert para errores (interrumpe), role=status para el resto (polite)
+  el.setAttribute("role", type === "error" ? "alert" : "status");
   el.innerHTML = `
-    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span class="toast-icon" aria-hidden="true">${icons[type] || icons.info}</span>
     <span class="toast-msg"></span>
-    <button class="toast-close" aria-label="Cerrar">×</button>`;
+    <button class="toast-close" aria-label="Cerrar notificación">×</button>`;
   el.querySelector(".toast-msg").textContent = msg;
   const dismiss = () => {
     if (el._hiding) return; el._hiding = true;
