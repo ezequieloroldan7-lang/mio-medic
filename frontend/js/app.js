@@ -996,6 +996,12 @@ async function renderPacientes(q) {
   } catch (e) { toast("Error al cargar pacientes: " + e.message, "error"); }
 }
 $("buscar-paciente").addEventListener("input", e => renderPacientes(e.target.value));
+$("filtro-orden-pacientes")?.addEventListener("change", e => {
+  const v = e.target.value || "apellido_asc";
+  const i = v.lastIndexOf("_");
+  pacSort = { key: v.slice(0, i), dir: v.slice(i + 1) };
+  renderPacientes();
+});
 
 /* ── Profesionales ──────────────────────────────────────── */
 async function renderProfesionales() {

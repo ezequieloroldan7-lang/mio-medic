@@ -154,6 +154,14 @@
       </div>
       <div class="search-bar" role="search">
         <input type="search" id="buscar-paciente" placeholder="Buscar por nombre, apellido, DNI o HC..." aria-label="Buscar paciente"/>
+        <select id="filtro-orden-pacientes" aria-label="Ordenar pacientes" style="max-width:220px">
+          <option value="apellido_asc">Apellido A–Z</option>
+          <option value="apellido_desc">Apellido Z–A</option>
+          <option value="nombre_asc">Nombre A–Z</option>
+          <option value="nombre_desc">Nombre Z–A</option>
+          <option value="hc_asc">HC ascendente</option>
+          <option value="hc_desc">HC descendente</option>
+        </select>
       </div>
       <div id="tabla-pacientes" class="dash-turnos-list">
         <div style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</div>
