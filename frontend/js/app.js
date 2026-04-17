@@ -654,14 +654,14 @@ async function renderTurnos(q) {
 $("filtro-fecha")?.addEventListener("change",()=>renderTurnos());
 $("filtro-buscar-turno")?.addEventListener("input",e=>renderTurnos(e.target.value));
 
-/* ── Exportar CSV ───────────────────────────────────────── */
-async function exportarTurnosCSV() {
+/* ── Exportar Excel (XLSX) ──────────────────────────────── */
+async function exportarTurnosXLSX() {
   const desde = prompt("Desde (YYYY-MM-DD). Dejar vacío para últimos 30 días:") || "";
   const hasta = prompt("Hasta (YYYY-MM-DD). Dejar vacío para hoy:") || "";
   const qs = [];
   if (desde) qs.push("desde=" + encodeURIComponent(desde));
   if (hasta) qs.push("hasta=" + encodeURIComponent(hasta));
-  const url = "/turnos/export.csv" + (qs.length ? ("?" + qs.join("&")) : "");
+  const url = "/turnos/export.xlsx" + (qs.length ? ("?" + qs.join("&")) : "");
   try {
     const token = localStorage.getItem("token");
     const res = await fetch(url, {
@@ -673,16 +673,15 @@ async function exportarTurnosCSV() {
     const a = document.createElement("a");
     const blobUrl = URL.createObjectURL(blob);
     a.href = blobUrl;
-    a.download = `turnos_${desde || "ultimos30"}_${hasta || "hoy"}.csv`;
+    a.download = `turnos_${desde || "ultimos30"}_${hasta || "hoy"}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   } catch (e) {
-    toast("No se pudo exportar: " + e.message, "error");
+    toast("No se pudo exportar Excel: " + e.message, "error");
   }
 }
-window.exportarTurnosCSV = exportarTurnosCSV;
 
 /* ── Pacientes ──────────────────────────────────────────── */
 function _pacVal(p, key) {
@@ -1243,7 +1242,7 @@ async function guardarPassword() {
 }
 document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click",e=>{if(e.target===m){m.classList.remove("open"); clearFormErrors(m.id);}}));
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
-$("btn-export-csv")?.addEventListener("click", () => exportarTurnosCSV());
+$("btn-export-csv")?.addEventListener("click", () => exportarTurnosXLSX());
 $("btn-nuevo-paciente")?.addEventListener("click", () => abrirNuevoPaciente());
 $("btn-nuevo-medico")?.addEventListener("click", () => abrirNuevoMedico());
 

@@ -1,4 +1,3 @@
-import csv
 import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -7,6 +6,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
@@ -218,14 +219,34 @@ def stats(
     }
 
 
-# ── EXPORT CSV ───────────────────────────────────────────────
-@router.get("/export.csv")
-def export_csv(
+# ── EXPORT XLSX ──────────────────────────────────────────────
+_XLSX_COLUMNS = [
+    ("ID", 6),
+    ("Fecha", 12),
+    ("Hora", 8),
+    ("Consultorio", 12),
+    ("Duración (min)", 14),
+    ("Paciente", 28),
+    ("DNI", 12),
+    ("HC", 8),
+    ("Teléfono", 16),
+    ("Financiador", 20),
+    ("Plan", 16),
+    ("Profesional", 24),
+    ("Especialidad", 18),
+    ("Estado", 12),
+    ("WhatsApp enviado", 16),
+    ("Observaciones", 40),
+]
+
+
+@router.get("/export.xlsx")
+def export_xlsx(
     desde: Optional[date] = Query(None),
     hasta: Optional[date] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Exporta los turnos del rango (o últimos 30 días) a CSV."""
+    """Exporta los turnos del rango (o últimos 30 días) a Excel (.xlsx)."""
     if not hasta:
         hasta = date.today()
     if not desde:
@@ -238,20 +259,28 @@ def export_csv(
         )
     ).order_by(models.Turno.fecha_hora_inicio)
 
-    buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";")
-    w.writerow([
-        "ID", "Fecha", "Hora", "Consultorio", "Duración (min)",
-        "Paciente", "DNI", "HC", "Teléfono", "Financiador", "Plan",
-        "Profesional", "Especialidad", "Estado", "WhatsApp enviado", "Observaciones",
-    ])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Turnos"
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="6B5B4F")
+    header_align = Alignment(horizontal="center", vertical="center")
+    ws.append([name for name, _ in _XLSX_COLUMNS])
+    for idx, (_, width) in enumerate(_XLSX_COLUMNS, start=1):
+        cell = ws.cell(row=1, column=idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        ws.column_dimensions[cell.column_letter].width = width
+
     for t in q.all():
         p = t.paciente
         m = t.medico
-        w.writerow([
+        ws.append([
             t.id,
-            t.fecha_hora_inicio.strftime("%Y-%m-%d"),
-            t.fecha_hora_inicio.strftime("%H:%M"),
+            t.fecha_hora_inicio.date(),
+            t.fecha_hora_inicio.time().replace(second=0, microsecond=0),
             t.consultorio,
             t.duracion_minutos,
             f"{p.apellido}, {p.nombre}" if p else "",
@@ -266,13 +295,22 @@ def export_csv(
             "sí" if t.whatsapp_enviado else "no",
             (t.observaciones or "").replace("\n", " "),
         ])
+
+    # number_format para que Excel reconozca fecha/hora (columnas B y C).
+    for row in ws.iter_rows(min_row=2, min_col=2, max_col=3):
+        row[0].number_format = "yyyy-mm-dd"
+        row[1].number_format = "hh:mm"
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+
+    buf = io.BytesIO()
+    wb.save(buf)
     buf.seek(0)
-    filename = f"turnos_{desde.isoformat()}_{hasta.isoformat()}.csv"
-    # BOM para que Excel detecte UTF-8
-    data = "\ufeff" + buf.getvalue()
+    filename = f"turnos_{desde.isoformat()}_{hasta.isoformat()}.xlsx"
     return StreamingResponse(
-        iter([data]),
-        media_type="text/csv; charset=utf-8",
+        iter([buf.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
