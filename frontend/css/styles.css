@@ -460,12 +460,32 @@ body {
 .chip-btn {
   font: inherit; font-size: .62rem; line-height: 1;
   padding: .18rem .4rem; border-radius: 3px; cursor: pointer;
-  border: 1px solid currentColor; background: rgba(255,255,255,.55); color: inherit;
+  border: 1px solid currentColor;
+  background: var(--white); color: inherit;
+  opacity: .92;
 }
-.chip-btn:hover { background: rgba(255,255,255,.9); }
-.chip-btn-cancel { color: var(--warning); border-color: var(--warning); background: rgba(255,255,255,.7); }
-.chip-btn-delete { background: var(--danger); color: #fff; border-color: var(--danger); }
+.chip-btn:hover { opacity: 1; }
+.chip-btn-cancel {
+  color: var(--warning-dk);
+  background: var(--warning-lt);
+  border-color: var(--warning);
+}
+.chip-btn-delete {
+  background: var(--danger); color: #fff; border-color: var(--danger);
+}
 .chip-btn-delete:hover { filter: brightness(.92); background: var(--danger); }
+
+/* ── Drag vertical de chips ────────────────────────────────
+ * El chip en reposo sugiere arrastre (grab). Mientras se arrastra,
+ * elevamos z-index y quitamos la transición para que siga al puntero. */
+.turno-chip { cursor: grab; touch-action: none; }
+.turno-chip.chip-dragging {
+  cursor: grabbing;
+  transition: none;
+  z-index: 5;
+  box-shadow: var(--shadow-lg);
+  opacity: .92;
+}
 
 /* ── Buttons ────────────────────────────────────────────────── */
 .btn {
