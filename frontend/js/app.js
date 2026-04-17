@@ -317,6 +317,30 @@ document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-close-modal]");
   if (el) cerrarModal(el.dataset.closeModal);
 });
+
+/* ── Delegación de acciones en listas dinámicas (CSP strict) ──
+ * Cada botón/fila con data-action="..." y data-id="..." se enruta acá.
+ * closest() encuentra el elemento más cercano, así que un botón dentro de
+ * una tarjeta gana sobre la tarjeta contenedora — no hace falta stopPropagation.
+ */
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id ? parseInt(el.dataset.id, 10) : null;
+  switch (action) {
+    case "editar-turno":         abrirEditarTurno(id); break;
+    case "cancelar-turno":       cancelarTurno(id); break;
+    case "eliminar-turno":       eliminarTurno(id); break;
+    case "nuevo-turno-paciente": abrirNuevoTurnoPaciente(id); break;
+    case "editar-paciente":      abrirEditarPaciente(id); break;
+    case "eliminar-paciente":    eliminarPaciente(id); break;
+    case "agregar-horario":      abrirAgregarHorario(id); break;
+    case "editar-medico":        abrirEditarMedico(id); break;
+    case "eliminar-medico":      eliminarMedico(id); break;
+    case "eliminar-horario":     eliminarHorario(id); break;
+  }
+});
 $("btn-save-turno")?.addEventListener("click", () => guardarTurno());
 $("btn-save-paciente")?.addEventListener("click", () => guardarPaciente());
 $("btn-save-medico")?.addEventListener("click", () => guardarMedico());
@@ -463,13 +487,13 @@ async function renderDashboard() {
           if (p?.financiador) info.push(p.financiador + (p.plan ? " — "+p.plan : ""));
           if (p?.telefono) info.push(p.telefono);
           const infoHtml = info.length ? `<div class="dash-turno-info">${info.map(i=>`<span>${esc(i)}</span>`).join("")}</div>` : "";
-          return `<div class="dash-turno-card" onclick="abrirEditarTurno(${t.id})">
+          return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
             <span class="dash-turno-hora">${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
             <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
             <span class="dash-turno-consultorio">C${t.consultorio}</span>
             <span class="dash-turno-medico">${esc(t.medico?.apellido)}</span>
             <span class="badge badge-${t.estado}">${t.estado}</span>
-            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();abrirEditarTurno(${t.id})">Editar</button></span>
+            <span class="dash-turno-actions"><button class="btn btn-sm btn-outline" data-action="editar-turno" data-id="${t.id}">Editar</button></span>
             ${infoHtml}
             ${obs}
           </div>`;
@@ -611,16 +635,16 @@ async function renderTurnos(q) {
       if(p?.financiador)info.push(p.financiador+(p.plan?" — "+p.plan:""));
       if(p?.email)info.push(p.email);
       const infoHtml=info.length?`<div class="dash-turno-info">${info.map(i=>`<span>${i}</span>`).join("")}</div>`:"";
-      return `<div class="dash-turno-card" onclick="abrirEditarTurno(${t.id})">
+      return `<div class="dash-turno-card" data-action="editar-turno" data-id="${t.id}">
         <span class="dash-turno-hora">${fmtFechaCorta(t.fecha_hora_inicio)} ${fmtHoraDisplay(t.fecha_hora_inicio)}</span>
         <span class="dash-turno-paciente">${esc(p?.apellido)}, ${esc(p?.nombre)}</span>
         <span class="dash-turno-consultorio">C${t.consultorio}</span>
         <span class="dash-turno-medico">${esc(t.medico?.nombre)} ${esc(t.medico?.apellido)} — ${esc(t.medico?.especialidad?.nombre||"")}</span>
         <span class="badge badge-${t.estado}">${t.estado}</span>
-        <span class="dash-turno-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-outline" onclick="abrirEditarTurno(${t.id})">Editar</button>
-          <button class="btn btn-sm btn-outline" onclick="cancelarTurno(${t.id})" style="color:var(--warning);border-color:var(--warning)">Cancelar</button>
-          <button class="btn btn-sm btn-danger" onclick="eliminarTurno(${t.id})">Eliminar</button>
+        <span class="dash-turno-actions">
+          <button class="btn btn-sm btn-outline" data-action="editar-turno" data-id="${t.id}">Editar</button>
+          <button class="btn btn-sm btn-outline" data-action="cancelar-turno" data-id="${t.id}" style="color:var(--warning);border-color:var(--warning)">Cancelar</button>
+          <button class="btn btn-sm btn-danger" data-action="eliminar-turno" data-id="${t.id}">Eliminar</button>
         </span>
         ${infoHtml}
         ${obs}
@@ -738,9 +762,9 @@ async function renderPacientes(q) {
             <span class="dash-turno-paciente" style="font-weight:600">${esc(p.apellido)}, ${esc(p.nombre)}</span>
             ${infoStr}
             <span class="pac-actions" style="margin-left:auto;display:flex;gap:.35rem;flex-shrink:0">
-              <button class="btn btn-sm btn-primary" onclick="abrirNuevoTurnoPaciente(${p.id})">Turno</button>
-              <button class="btn btn-sm btn-outline" onclick="abrirEditarPaciente(${p.id})">Editar</button>
-              <button class="btn btn-sm btn-danger" onclick="eliminarPaciente(${p.id})">Eliminar</button>
+              <button class="btn btn-sm btn-primary" data-action="nuevo-turno-paciente" data-id="${p.id}">Turno</button>
+              <button class="btn btn-sm btn-outline" data-action="editar-paciente" data-id="${p.id}">Editar</button>
+              <button class="btn btn-sm btn-danger" data-action="eliminar-paciente" data-id="${p.id}">Eliminar</button>
             </span>
           </div>`;
         }).join("");
@@ -799,9 +823,9 @@ async function renderProfesionales() {
             <div class="horario-list">${renderHorariosPills(m.horarios || [], m.id)}</div>
           </div>
           <div class="prof-actions">
-            <button class="btn btn-sm btn-outline" onclick="abrirAgregarHorario(${m.id})">+ Horario</button>
-            <button class="btn btn-sm btn-outline" onclick="abrirEditarMedico(${m.id})">Editar</button>
-            <button class="btn btn-sm btn-danger" onclick="eliminarMedico(${m.id})">Eliminar</button>
+            <button class="btn btn-sm btn-outline" data-action="agregar-horario" data-id="${m.id}">+ Horario</button>
+            <button class="btn btn-sm btn-outline" data-action="editar-medico" data-id="${m.id}">Editar</button>
+            <button class="btn btn-sm btn-danger" data-action="eliminar-medico" data-id="${m.id}">Eliminar</button>
           </div>
         </div>`;
     }).join("");
@@ -812,7 +836,7 @@ function renderHorariosPills(horarios, medicoId) {
   if (!horarios.length) return `<span style="font-size:.75rem;color:var(--muted);font-style:italic">Sin horarios cargados</span>`;
   return horarios.slice().sort((a, b) => a.dia_semana - b.dia_semana).map(h =>
     `<span class="horario-pill">${DIAS[h.dia_semana].slice(0,3)} · ${esc(h.hora_inicio)}–${esc(h.hora_fin)} · C${h.consultorio}
-      <button onclick="eliminarHorario(${h.id})" title="Eliminar">×</button></span>`
+      <button data-action="eliminar-horario" data-id="${h.id}" title="Eliminar">×</button></span>`
   ).join("");
 }
 
@@ -943,7 +967,6 @@ function abrirNuevoTurno(consultorio=1, fechaHora="") {
   $("turno-obs").value="";
   $("btn-agregar-paciente").style.display="none";
   $("btn-agregar-paciente").textContent="+ Agregar paciente";
-  $("btn-agregar-paciente").onclick=mostrarCamposPacienteNuevo;
   if($("turno-pac-info")) $("turno-pac-info").style.display="none";
   if($("turno-new-pac-fields")) $("turno-new-pac-fields").classList.remove("open");
   if($("turno-new-dni")) $("turno-new-dni").value="";
