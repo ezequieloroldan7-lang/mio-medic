@@ -7,9 +7,11 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="theme-color" content="#FAF7F3"/>
   <title>MIO MEDIC — Turnos</title>
+  <!-- Tema: aplica data-theme antes del primer paint para evitar FOUC -->
+  <script src="/static/js/theme.js?v=1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/static/css/styles.css?v=12"/>
+  <link rel="stylesheet" href="/static/css/styles.css?v=13"/>
 </head>
 <body>
 
@@ -28,6 +30,7 @@
   </div>
   <div class="header-user-desktop">
     <span id="user-display" class="header-user-name"></span>
+    <button class="header-action-btn btn-theme-toggle" id="btn-header-theme" type="button" aria-label="Cambiar tema"><span class="theme-icon" aria-hidden="true"></span></button>
     <button class="header-action-btn" id="btn-header-2fa">2FA</button>
     <button class="header-action-btn" id="btn-header-password">Clave</button>
     <button class="header-action-btn" id="btn-header-logout">Salir</button>
@@ -49,6 +52,7 @@
         <li class="admin-only"><button type="button" class="nav-item" data-view="view-audit" title="Atajo: 6"><span class="nav-icon" aria-hidden="true">⎙</span> Auditoría <kbd class="nav-kbd" aria-hidden="true">6</kbd></button></li>
         <li role="separator" class="nav-divider sidebar-user-mobile"></li>
         <li class="sidebar-user-mobile"><span class="nav-item nav-item-readonly" id="sidebar-user-name"></span></li>
+        <li class="sidebar-user-mobile"><button type="button" class="nav-item btn-theme-toggle" id="sidebar-theme"><span class="theme-icon" aria-hidden="true"></span> <span class="theme-label">Tema</span></button></li>
         <li class="sidebar-user-mobile"><button type="button" class="nav-item" id="sidebar-password"><span class="nav-icon" aria-hidden="true">◐</span> Cambiar clave</button></li>
         <li class="sidebar-user-mobile"><button type="button" class="nav-item" id="sidebar-logout"><span class="nav-icon" aria-hidden="true">↗</span> Cerrar sesión</button></li>
       </ul>
