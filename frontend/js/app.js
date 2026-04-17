@@ -903,7 +903,7 @@ document.querySelectorAll(".modal-overlay").forEach(m=>m.addEventListener("click
 $("btn-fab")?.addEventListener("click",()=>abrirNuevoTurno());
 
 init().then(() => {
-  if (!localStorage.getItem("tutorial_done")) tutorialStart();
+  if (!localStorage.getItem("tutorial_done_v2")) tutorialStart();
 }).catch(e=>console.error("Error de inicio:",e));
 
 /* ── Tutorial interactivo ──────────────────────────────── */
@@ -912,27 +912,29 @@ let _tutSteps = [];
 
 function _tutStepsAdmin() {
   return [
-    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar las principales funciones del sistema de turnos. Hace click en Siguiente para continuar.", target: ".header-logo" },
-    { title: "Dashboard", desc: "Aca ves un resumen de los turnos de hoy: cuantos hay, pendientes, confirmados, realizados y ausentes/cancelados.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
-    { title: "Agenda", desc: "La agenda muestra los turnos del dia en formato de grilla por consultorio. Podes hacer click en un horario libre para agendar un turno nuevo.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
-    { title: "Turnos", desc: "Aca ves la lista completa de turnos con todos los datos del paciente. Podes filtrar por fecha y buscar por nombre.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
-    { title: "Pacientes", desc: "Gestion de pacientes: buscar, agregar, editar o eliminar. Desde aca tambien podes agendar un turno rapido para un paciente.", target: '[data-view="view-pacientes"]', action: ()=>navTo("view-pacientes") },
-    { title: "Profesionales", desc: "Administra los profesionales del consultorio, sus horarios de atencion y la integracion con Google Calendar.", target: '[data-view="view-profesionales"]', action: ()=>navTo("view-profesionales") },
-    { title: "Google Calendar", desc: "Para sincronizar turnos con Google Calendar: 1) Edita el profesional y completa el campo Email Google Calendar con el mail del calendario. 2) En Google Calendar, compartilo con el email de la cuenta de servicio como editor. Los turnos se sincronizan automaticamente.", target: '[data-view="view-profesionales"]' },
-    { title: "Nuevo Turno", desc: "Para agendar un turno nuevo, usa el boton + Turno en la agenda o el boton Turno en la ficha del paciente. Si el paciente no existe, podes crearlo en el momento.", target: "#btn-fab", action: ()=>navTo("view-agenda") },
-    { title: "Cambiar contraseña", desc: "Cada usuario puede cambiar su contraseña haciendo click en el boton Clave en la esquina superior derecha.", target: "#user-display" },
-    { title: "Listo!", desc: "Ya conoces las funciones principales. Si tenes dudas, explora cada seccion. Este tutorial no se va a volver a mostrar.", target: ".header-logo" },
+    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar el sistema de turnos paso a paso. Son pocos minutos y vas a aprovechar mejor todas las funciones. Dale Siguiente para arrancar.", target: ".header-logo" },
+    { title: "Dashboard", desc: "Resumen del dia: total de turnos, realizados, confirmados, pendientes y ausentes/cancelados. Abajo aparece la lista completa de turnos de hoy con el paciente y el profesional.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
+    { title: "Agenda", desc: "Grilla del dia por consultorio (cada uno con su color). Hace click en un horario libre para agendar. En mobile podes deslizar a izquierda o derecha para cambiar de dia.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
+    { title: "Boton + Turno", desc: "Desde la agenda tenes el boton + Turno flotante para crear uno nuevo. Si el paciente no existe, un boton + Agregar paciente te permite crearlo sin salir del formulario.", target: "#btn-fab" },
+    { title: "Confirmacion y alertas", desc: "Al guardar un turno se muestra un resumen con paciente, WhatsApp y horario. El sistema avisa si el paciente ya tiene turno ese dia o si el profesional no atiende en esa franja.", target: "#btn-fab" },
+    { title: "Lista de Turnos", desc: "Filtra por fecha o busca por nombre. Cada turno tiene botones Reprogramar, Cancelar y Eliminar. Con Exportar CSV descargas la planilla del filtro actual.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
+    { title: "Pacientes", desc: "Tarjetas con nombre, DNI, HC, telefono, email y financiador/plan. Podes agregar, editar, eliminar o agendar un turno rapido. Ya hay 10 pacientes de demo (HC 100-109) para probar.", target: '[data-view="view-pacientes"]', action: ()=>navTo("view-pacientes") },
+    { title: "Telefono WhatsApp", desc: "Al cargar el telefono se normaliza automaticamente al formato de WhatsApp (+54...), asi despues podes contactar al paciente directo desde el turno.", target: '[data-view="view-pacientes"]' },
+    { title: "Profesionales", desc: "Alta, edicion y baja de profesionales (incluye borrado en cascada de sus turnos y horarios). Cada profesional define sus franjas de atencion por dia y consultorio.", target: '[data-view="view-profesionales"]', action: ()=>navTo("view-profesionales") },
+    { title: "Google Calendar", desc: "En la ficha del profesional completa el campo Email Google Calendar con el mail del calendario. Despues, en Google Calendar, compartilo como editor con la cuenta de servicio. Los turnos se sincronizan solos.", target: '[data-view="view-profesionales"]' },
+    { title: "Tu clave y sesion", desc: "Arriba a la derecha (o en el menu ☰ en mobile) tenes los botones Clave para cambiar tu contraseña y Salir para cerrar sesion. Como admin tambien podes resetear claves de otros usuarios.", target: "#user-display" },
+    { title: "Listo!", desc: "Ya conoces las funciones principales. Explora cada seccion con calma. Este tutorial no se va a volver a mostrar, pero siempre podes reiniciarlo borrando tutorial_done del navegador.", target: ".header-logo" },
   ];
 }
 
 function _tutStepsMedico() {
   return [
-    { title: "Bienvenido a MIO MEDIC", desc: "Te vamos a mostrar tu panel profesional. Solo ves tus propios turnos agendados.", target: ".header-logo" },
-    { title: "Tus turnos de hoy", desc: "El dashboard muestra un resumen de tus turnos de hoy con contadores de estado.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
-    { title: "Tu agenda", desc: "La agenda muestra tus turnos en formato de grilla por consultorio y horario.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
-    { title: "Lista de turnos", desc: "Aca podes ver, editar o cancelar tus turnos. Filtra por fecha o busca por nombre de paciente.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
-    { title: "Cambiar contraseña", desc: "Podes cambiar tu contraseña en cualquier momento desde el boton Clave arriba a la derecha.", target: "#user-display" },
-    { title: "Listo!", desc: "Ya conoces tu panel. Si tenes dudas, explora cada seccion.", target: ".header-logo" },
+    { title: "Bienvenido a MIO MEDIC", desc: "Este es tu panel profesional: solo ves tus propios turnos. Dale Siguiente para ver las novedades.", target: ".header-logo" },
+    { title: "Tu dashboard", desc: "Resumen del dia con tus contadores (realizados, confirmados, pendientes, ausentes/cancelados) y la lista de tus turnos de hoy.", target: '[data-view="view-dashboard"]', action: ()=>navTo("view-dashboard") },
+    { title: "Tu agenda", desc: "Grilla por consultorio con tus turnos del dia. Cada consultorio tiene su color. En mobile, desliza a izquierda o derecha para cambiar de dia.", target: '[data-view="view-agenda"]', action: ()=>navTo("view-agenda") },
+    { title: "Lista de tus turnos", desc: "Filtra por fecha o busca por paciente. Cada turno tiene Reprogramar, Cancelar y Eliminar. Con Exportar CSV descargas la planilla filtrada.", target: '[data-view="view-turnos"]', action: ()=>navTo("view-turnos") },
+    { title: "Tu clave y sesion", desc: "Arriba a la derecha (o en el menu ☰ en mobile) tenes los botones Clave para cambiar tu contraseña y Salir para cerrar sesion.", target: "#user-display" },
+    { title: "Listo!", desc: "Ya conoces tu panel. Este tutorial no se va a volver a mostrar. Cualquier duda, explora cada seccion tranqui.", target: ".header-logo" },
   ];
 }
 
@@ -951,7 +953,7 @@ function tutorialNext() {
 
 function tutorialSkip() {
   $("tutorial-overlay").style.display = "none";
-  localStorage.setItem("tutorial_done", "1");
+  localStorage.setItem("tutorial_done_v2", "1");
   navTo("view-dashboard");
 }
 
