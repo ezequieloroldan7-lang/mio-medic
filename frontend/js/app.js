@@ -334,6 +334,28 @@ $("sidebar-password")?.addEventListener("click", () => {
   _setSidebarOpen(false);
 });
 $("sidebar-logout")?.addEventListener("click", () => logout());
+
+/* ── Theme toggle (light/dark) ───────────────────────────────── */
+function _updateThemeButtons() {
+  if (!window.__theme) return;
+  const current = window.__theme.get();
+  const isDark = current === "dark";
+  const label = isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro";
+  document.querySelectorAll(".btn-theme-toggle").forEach(btn => {
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("aria-pressed", String(isDark));
+  });
+}
+function _onThemeToggleClick() {
+  if (!window.__theme) return;
+  window.__theme.toggle();
+}
+$("btn-header-theme")?.addEventListener("click", _onThemeToggleClick);
+$("sidebar-theme")?.addEventListener("click", _onThemeToggleClick);
+if (window.__theme) {
+  _updateThemeButtons();
+  window.__theme.onChange(_updateThemeButtons);
+}
 // Cerrar sidebar al tocar fuera (mobile)
 document.querySelector(".main").addEventListener("click",()=>_setSidebarOpen(false));
 
