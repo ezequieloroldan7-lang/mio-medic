@@ -125,12 +125,64 @@
       margin-top: 1rem;
       display: none;
     }
+    /* Banner de modo demo: solo se muestra cuando /demo-info devuelve demo:true */
+    .demo-banner {
+      background: #FFF5D6;
+      border: 1px solid #E4C66B;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      text-align: left;
+      color: #6B5000;
+    }
+    [data-theme="dark"] .demo-banner {
+      background: #3A2F10;
+      border-color: #8F6F30;
+      color: #F2D98A;
+    }
+    .demo-banner-title {
+      font-weight: 700;
+      font-size: .8rem;
+      letter-spacing: .1rem;
+      text-transform: uppercase;
+      margin-bottom: .35rem;
+    }
+    .demo-banner-sub {
+      font-size: .75rem;
+      opacity: .9;
+      margin-bottom: .75rem;
+    }
+    .demo-creds { list-style: none; padding: 0; margin: 0; }
+    .demo-creds li {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: .5rem; padding: .35rem 0;
+      border-top: 1px dashed rgba(0,0,0,.1);
+      font-size: .78rem;
+    }
+    [data-theme="dark"] .demo-creds li { border-top-color: rgba(255,255,255,.1); }
+    .demo-creds li:first-child { border-top: none; }
+    .demo-creds-rol { font-weight: 600; }
+    .demo-creds-usuario { font-family: ui-monospace, Menlo, monospace; opacity: .9; }
+    .demo-cred-btn {
+      border: 1px solid currentColor;
+      background: transparent;
+      color: inherit;
+      border-radius: 6px;
+      padding: .25rem .55rem;
+      font-size: .7rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .demo-cred-btn:hover { background: rgba(0,0,0,.06); }
+    [data-theme="dark"] .demo-cred-btn:hover { background: rgba(255,255,255,.08); }
   </style>
 </head>
 <body>
   <div class="login-card">
     <img class="login-logo" src="/static/img/logo.png" alt="MIO MEDIC" width="120" height="120"/>
     <div class="login-subtitle">Medicina Integral Oncologica & Estetica</div>
+    <div id="demo-banner" class="demo-banner" hidden></div>
     <form id="login-form">
       <div class="form-group">
         <label>Usuario</label>
@@ -148,6 +200,6 @@
       <div class="error-msg" id="error-msg"></div>
     </form>
   </div>
-  <script src="/static/js/login.js?v=1"></script>
+  <script src="/static/js/login.js?v=2"></script>
 </body>
 </html>

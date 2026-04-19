@@ -193,6 +193,24 @@ body {
   box-shadow: 0 2px 6px rgba(80,55,40,.08);
 }
 
+/* Badge "DEMO" en el header — solo se inserta si /demo-info devuelve demo:true */
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .18rem .55rem;
+  margin-left: .4rem;
+  background: var(--warning-lt);
+  color: var(--warning-dk);
+  border: 1px solid var(--warning);
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .12rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: help;
+}
+
 /* ── Layout ─────────────────────────────────────────────────── */
 .layout { display: flex; margin-top: var(--header-h); min-height: calc(100vh - var(--header-h)); }
 

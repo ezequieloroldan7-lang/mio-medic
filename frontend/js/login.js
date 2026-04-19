@@ -3,6 +3,57 @@ if (localStorage.getItem("token")) {
   window.location.href = "/";
 }
 
+// Banner de modo demo: consulta /demo-info; si la instancia es una demo,
+// muestra credenciales clickeables que prellenan el formulario.
+(async function initDemoBanner() {
+  const banner = document.getElementById("demo-banner");
+  if (!banner) return;
+  try {
+    const res = await fetch("/demo-info", { headers: { Accept: "application/json" } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !data.demo) return;
+    const creds = Array.isArray(data.credenciales) ? data.credenciales : [];
+    const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+    const itemsHtml = creds.map((c) => `
+      <li>
+        <span>
+          <span class="demo-creds-rol">${escHtml(c.rol)}</span>
+          &nbsp;<span class="demo-creds-usuario">${escHtml(c.usuario)}</span>
+        </span>
+        <button type="button" class="demo-cred-btn"
+                data-demo-user="${escHtml(c.usuario)}"
+                data-demo-pass="${escHtml(c.password)}">
+          Usar
+        </button>
+      </li>
+    `).join("");
+    banner.innerHTML = `
+      <div class="demo-banner-title">🎮 Modo demo</div>
+      <div class="demo-banner-sub">${escHtml(data.mensaje || "Datos ficticios.")}</div>
+      <ul class="demo-creds">${itemsHtml}</ul>
+    `;
+    banner.hidden = false;
+
+    // Delegación: cualquier click en un botón con data-demo-user completa el form.
+    banner.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-demo-user]");
+      if (!btn) return;
+      const u = btn.getAttribute("data-demo-user") || "";
+      const p = btn.getAttribute("data-demo-pass") || "";
+      const inpU = document.getElementById("username");
+      const inpP = document.getElementById("password");
+      if (inpU) inpU.value = u;
+      if (inpP) inpP.value = p;
+      if (inpP) inpP.focus();
+    });
+  } catch (_) {
+    // Red caída o endpoint ausente → banner queda oculto, sin ruido.
+  }
+})();
+
 document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const errEl = document.getElementById("error-msg");

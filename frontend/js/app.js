@@ -522,6 +522,25 @@ async function init() {
     sessionStorage.setItem("welcome_shown", "1");
   }
 
+  // Badge DEMO: si la instancia es demo, mostramos un chip en el header y
+  // un toast de bienvenida. No bloqueante: si el endpoint falla, se ignora.
+  fetch("/demo-info").then(r => r.ok ? r.json() : null).then(data => {
+    if (!data || !data.demo) return;
+    const sub = document.querySelector(".header-sub");
+    if (sub && !document.getElementById("demo-badge")) {
+      const badge = document.createElement("span");
+      badge.id = "demo-badge";
+      badge.className = "demo-badge";
+      badge.textContent = "DEMO";
+      badge.title = data.mensaje || "Modo demo";
+      sub.insertAdjacentElement("afterend", badge);
+    }
+    if (!sessionStorage.getItem("demo_welcome_shown")) {
+      toast("Estás en la demo pública. Los datos se comparten entre visitantes.", "warn");
+      sessionStorage.setItem("demo_welcome_shown", "1");
+    }
+  }).catch(() => {});
+
   renderDashboard();
 }
 

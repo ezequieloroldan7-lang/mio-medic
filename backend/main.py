@@ -46,6 +46,17 @@ logging.basicConfig(
 log = logging.getLogger("miomedic")
 
 
+# ── Modo demo ────────────────────────────────────────────────
+# Activado por env var DEMO_MODE. Hace tres cosas:
+# 1) Siembra datos ficticios extra (médicos, horarios, turnos) al primer arranque.
+# 2) Fija las credenciales de admin/mioturnos/médicos a DEMO_PASSWORD (default "demo123")
+#    y saltea el flujo de must_change_password.
+# 3) Expone /demo-info público con las credenciales para la pantalla de login.
+# No alterar en producción.
+DEMO_MODE = os.getenv("DEMO_MODE", "").strip().lower() in ("1", "true", "yes", "on")
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "demo123")
+
+
 # ── Scheduler para WhatsApp ──────────────────────────────────
 scheduler = AsyncIOScheduler()
 
@@ -224,14 +235,27 @@ async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
     _migrate_db()
     _seed_datos_iniciales()
+    if DEMO_MODE:
+        # Médicos + horarios deben existir antes de _seed_admin_user (que crea
+        # un user por médico) y antes de _seed_demo_turnos.
+        _seed_demo_medicos_horarios()
     _seed_admin_user()
-    scheduler.add_job(tarea_whatsapp, "interval", hours=1, id="wa_reminders", replace_existing=True)
-    # Backup diario del SQLite a las 03:00 (hora del servidor). No-op en Postgres.
-    scheduler.add_job(tarea_backup, "cron", hour=3, minute=0, id="db_backup", replace_existing=True)
-    scheduler.start()
-    log.info("Scheduler iniciado. App lista.")
+    if DEMO_MODE:
+        _seed_demo_pacientes_extra()
+        _seed_demo_turnos()
+    # En modo demo no tiene sentido mandar recordatorios reales ni persistir
+    # backups del SQLite efímero — salteamos el scheduler entero.
+    if not DEMO_MODE:
+        scheduler.add_job(tarea_whatsapp, "interval", hours=1, id="wa_reminders", replace_existing=True)
+        # Backup diario del SQLite a las 03:00 (hora del servidor). No-op en Postgres.
+        scheduler.add_job(tarea_backup, "cron", hour=3, minute=0, id="db_backup", replace_existing=True)
+        scheduler.start()
+        log.info("Scheduler iniciado. App lista.")
+    else:
+        log.info("Modo demo activo: scheduler de WhatsApp y backup deshabilitados.")
     yield
-    scheduler.shutdown()
+    if scheduler.running:
+        scheduler.shutdown()
 
 
 # ── App ──────────────────────────────────────────────────────
@@ -321,6 +345,26 @@ def health():
     el healthcheck por problemas transitorios del scheduler.
     """
     return {"status": "ok", "timestamp": datetime.now().isoformat(), "version": app.version}
+
+
+@app.get("/demo-info")
+def demo_info():
+    """
+    Endpoint público para que el frontend detecte si está corriendo en modo demo
+    y muestre el banner de credenciales. En producción siempre devuelve
+    {demo: false} — no filtra nada sensible.
+    """
+    if not DEMO_MODE:
+        return {"demo": False}
+    return {
+        "demo": True,
+        "mensaje": "Modo demo — datos ficticios, WhatsApp y backups deshabilitados.",
+        "credenciales": [
+            {"rol": "Administrador", "usuario": "admin",     "password": DEMO_PASSWORD},
+            {"rol": "Secretaría",    "usuario": "mioturnos", "password": DEMO_PASSWORD},
+            {"rol": "Médico",        "usuario": "m.garrido", "password": DEMO_PASSWORD},
+        ],
+    }
 
 
 # ── Resumen rápido para el dashboard ─────────────────────────
@@ -414,47 +458,71 @@ def _seed_admin_user():
     from auth import hash_password
     db = SessionLocal()
     try:
+        # En modo demo forzamos DEMO_PASSWORD en todos los roles y anulamos
+        # must_change_password — así el visitante entra directo con las credenciales
+        # que se muestran en la pantalla de login.
+        must_change = False if DEMO_MODE else True
+
         # Usuario admin dedicado (gestión de usuarios + auditoría)
-        if not db.query(models.User).filter(models.User.username == "admin").first():
-            pw = os.getenv("INITIAL_ADMIN_PASSWORD") or secrets.token_urlsafe(9)
+        existing_admin = db.query(models.User).filter(models.User.username == "admin").first()
+        if not existing_admin:
+            pw = DEMO_PASSWORD if DEMO_MODE else (os.getenv("INITIAL_ADMIN_PASSWORD") or secrets.token_urlsafe(9))
             admin = models.User(
                 username="admin",
                 password_hash=hash_password(pw),
                 display_name="Administrador",
                 role="admin",
-                must_change_password=True,
+                must_change_password=must_change,
             )
             db.add(admin)
             db.commit()
-            log.warning(
-                "Usuario 'admin' creado. Contraseña inicial: %s "
-                "(cambiala en el primer login). Anotala: no se mostrará de nuevo.",
-                pw,
-            )
+            if DEMO_MODE:
+                log.info("Demo: usuario 'admin' creado con DEMO_PASSWORD.")
+            else:
+                log.warning(
+                    "Usuario 'admin' creado. Contraseña inicial: %s "
+                    "(cambiala en el primer login). Anotala: no se mostrará de nuevo.",
+                    pw,
+                )
+        elif DEMO_MODE:
+            # Idempotencia en demo: si el user ya existe (p.ej. tras un redeploy),
+            # reescribimos el hash con DEMO_PASSWORD para que la UI siga siendo
+            # consistente con lo que muestra el banner.
+            existing_admin.password_hash = hash_password(DEMO_PASSWORD)
+            existing_admin.must_change_password = False
+            db.commit()
 
         # Usuario de secretaría / turnos
         mioturnos = db.query(models.User).filter(models.User.username == "mioturnos").first()
         if not mioturnos:
-            pw = os.getenv("INITIAL_USER_PASSWORD") or secrets.token_urlsafe(9)
+            pw = DEMO_PASSWORD if DEMO_MODE else (os.getenv("INITIAL_USER_PASSWORD") or secrets.token_urlsafe(9))
             db.add(models.User(
                 username="mioturnos",
                 password_hash=hash_password(pw),
                 display_name="MIO TURNOS",
                 role="turnos",
-                must_change_password=True,
+                must_change_password=must_change,
             ))
             db.commit()
-            log.warning(
-                "Usuario 'mioturnos' (rol turnos) creado. Contraseña inicial: %s "
-                "(cambiala en el primer login).",
-                pw,
-            )
-        elif mioturnos.role == "admin":
-            # Deploys previos creaban mioturnos con role=admin. Ahora la
-            # gestión/auditoría vive en el usuario 'admin' aparte.
-            mioturnos.role = "turnos"
-            db.commit()
-            log.warning("Usuario 'mioturnos' demotado de 'admin' a 'turnos'.")
+            if DEMO_MODE:
+                log.info("Demo: usuario 'mioturnos' creado con DEMO_PASSWORD.")
+            else:
+                log.warning(
+                    "Usuario 'mioturnos' (rol turnos) creado. Contraseña inicial: %s "
+                    "(cambiala en el primer login).",
+                    pw,
+                )
+        else:
+            if mioturnos.role == "admin":
+                # Deploys previos creaban mioturnos con role=admin. Ahora la
+                # gestión/auditoría vive en el usuario 'admin' aparte.
+                mioturnos.role = "turnos"
+                db.commit()
+                log.warning("Usuario 'mioturnos' demotado de 'admin' a 'turnos'.")
+            if DEMO_MODE:
+                mioturnos.password_hash = hash_password(DEMO_PASSWORD)
+                mioturnos.must_change_password = False
+                db.commit()
 
         # Un usuario por cada médico que no tenga usuario
         medicos_sin_user = db.query(models.Medico).filter(
@@ -470,22 +538,33 @@ def _seed_admin_user():
             username = f"{_clean(m.nombre)[0]}.{_clean(m.apellido)}"
             if db.query(models.User).filter(models.User.username == username).first():
                 continue
-            pw = os.getenv("INITIAL_USER_PASSWORD") or secrets.token_urlsafe(9)
+            pw = DEMO_PASSWORD if DEMO_MODE else (os.getenv("INITIAL_USER_PASSWORD") or secrets.token_urlsafe(9))
             u = models.User(
                 username=username,
                 password_hash=hash_password(pw),
                 display_name=f"{m.nombre} {m.apellido}",
                 role="medico",
                 medico_id=m.id,
-                must_change_password=True,
+                must_change_password=must_change,
             )
             db.add(u)
-            log.warning(
-                "Usuario medico '%s' creado para %s %s. Contraseña inicial: %s "
-                "(cambiala en el primer login).",
-                username, m.nombre, m.apellido, pw,
-            )
+            if DEMO_MODE:
+                log.info("Demo: usuario medico '%s' creado con DEMO_PASSWORD.", username)
+            else:
+                log.warning(
+                    "Usuario medico '%s' creado para %s %s. Contraseña inicial: %s "
+                    "(cambiala en el primer login).",
+                    username, m.nombre, m.apellido, pw,
+                )
         db.commit()
+
+        # En demo, también resetear la clave de los users de médicos ya existentes
+        # para que no quede ningún residuo con contraseña random de deploys previos.
+        if DEMO_MODE:
+            for u in db.query(models.User).filter(models.User.role == "medico").all():
+                u.password_hash = hash_password(DEMO_PASSWORD)
+                u.must_change_password = False
+            db.commit()
 
         # Generar ical_token para médicos que no lo tengan (feed firmado)
         medicos_sin_token = db.query(models.Medico).filter(
@@ -499,5 +578,211 @@ def _seed_admin_user():
     except Exception as e:  # noqa: BLE001
         db.rollback()
         log.error("Error creando usuarios: %s", e)
+    finally:
+        db.close()
+
+
+# ── Seeds exclusivos de modo demo ────────────────────────────
+# Solo se ejecutan si DEMO_MODE está activo. Son idempotentes: cada uno checkea
+# si ya hizo su trabajo y retorna si sí. Pensados para que el visitante de la
+# demo vea una app "viva" apenas entra (agenda con turnos, buscador con
+# muchos pacientes, estados variados).
+
+_DEMO_MEDICOS_EXTRA = [
+    # (nombre, apellido, especialidad, consultorio)
+    ("Juan Martín",  "Pérez",   "Dermatología",  2),
+    ("Carla",        "Ruiz",    "Nutrición",     3),
+    ("Ignacio",      "Vázquez", "Cosmetología",  1),
+]
+
+
+def _seed_demo_medicos_horarios():
+    """
+    Agrega los médicos adicionales de la demo (si aún no existen por apellido)
+    y carga horarios Lun-Vie 09:00-18:00 para todos los médicos que no tengan.
+    """
+    db = SessionLocal()
+    try:
+        # Cargar especialidades por nombre
+        esps = {e.nombre: e for e in db.query(models.Especialidad).all()}
+
+        # Médicos adicionales
+        nuevos = 0
+        for nombre, apellido, esp_nombre, _consul in _DEMO_MEDICOS_EXTRA:
+            if db.query(models.Medico).filter(models.Medico.apellido == apellido).first():
+                continue
+            esp = esps.get(esp_nombre)
+            if not esp:
+                continue
+            db.add(models.Medico(
+                nombre=nombre, apellido=apellido, especialidad_id=esp.id,
+            ))
+            nuevos += 1
+        if nuevos:
+            db.commit()
+            log.info("Seed demo: %d médicos adicionales cargados.", nuevos)
+
+        # Horarios Lun-Vie 09:00-18:00 — uno por médico sin horarios.
+        # Asignamos consultorio según el seed extra o 1 por default.
+        consul_por_apellido = {ap: c for _, ap, _, c in _DEMO_MEDICOS_EXTRA}
+        medicos_sin_horarios = db.query(models.Medico).filter(
+            ~models.Medico.id.in_(
+                db.query(models.HorarioMedico.medico_id)
+                .filter(models.HorarioMedico.medico_id.isnot(None))
+            )
+        ).all()
+        total_horarios = 0
+        for m in medicos_sin_horarios:
+            consul = consul_por_apellido.get(m.apellido, 1)
+            for dia in range(5):  # 0=Lun … 4=Vie
+                db.add(models.HorarioMedico(
+                    medico_id=m.id, dia_semana=dia,
+                    hora_inicio="09:00", hora_fin="18:00",
+                    consultorio=consul,
+                ))
+                total_horarios += 1
+        if total_horarios:
+            db.commit()
+            log.info("Seed demo: %d franjas de horario cargadas (Lun-Vie 09-18).", total_horarios)
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.error("Error en seed demo médicos/horarios: %s", e)
+    finally:
+        db.close()
+
+
+_DEMO_PACIENTES_EXTRA = [
+    # (apellido, nombre, dni, tel, email, financiador, plan)
+    ("GONZALEZ",  "MARIA",      "27345678", "5491134000001", "maria.gonzalez@gmail.com",  "OSDE",          "510"),
+    ("PEREYRA",   "LUCIA",      "31456789", "5491134000002", None,                         "SWISS MEDICAL", "SMG30"),
+    ("BENITEZ",   "MATIAS",     "34567890", "5491134000003", "matias.benitez@hotmail.com", "GALENO",        "AZUL"),
+    ("ROMERO",    "AGUSTINA",   "38678901", "5491134000004", "agus.romero@gmail.com",      "OSDE",          "210"),
+    ("SOSA",      "JOAQUIN",    "29789012", "5491134000005", None,                         "MEDIFE",        "PLATA"),
+    ("ALVAREZ",   "PAULA",      "32890123", "5491134000006", "paula.alvarez@yahoo.com",    "PARTICULAR",    None),
+    ("MOLINA",    "SANTIAGO",   "40901234", "5491134000007", "santi.molina@gmail.com",     "OMINT",         "FAMILIAR"),
+    ("GIMENEZ",   "FLORENCIA",  "33012345", "5491134000008", None,                         "SWISS MEDICAL", "SMG20"),
+    ("CASTRO",    "JULIAN",     "28123789", "5491134000009", "julian.castro@outlook.com",  "OSDE",          "310"),
+    ("HERRERA",   "ANTONELLA",  "37234567", "5491134000010", "anto.herrera@gmail.com",     "MEDICUS",       "ORO"),
+    ("AGUIRRE",   "FEDERICO",   "30345001", "5491134000011", None,                         "PARTICULAR",    None),
+    ("SILVA",     "GABRIELA",   "35456002", "5491134000012", "gabriela.silva@gmail.com",   "GALENO",        "VERDE"),
+    ("QUIROGA",   "TOMAS",      "39567003", "5491134000013", None,                         "OSDE",          "210"),
+    ("MEDINA",    "CAROLINA",   "31678004", "5491134000014", "caro.medina@hotmail.com",    "MEDIFE",        "BRONCE"),
+    ("VARGAS",    "ESTEBAN",    "26789005", "5491134000015", "esteban.vargas@gmail.com",   "OMINT",         "GLOBAL"),
+]
+
+
+def _seed_demo_pacientes_extra():
+    """Agrega 15 pacientes ficticios (HC 110-124) además de los 10 base."""
+    db = SessionLocal()
+    try:
+        # Si ya existe HC 110 → asumimos cargado.
+        if db.query(models.Paciente).filter(models.Paciente.nro_hc == "110").first():
+            return
+        for i, (ap, nom, dni, tel, email, fin, plan) in enumerate(_DEMO_PACIENTES_EXTRA):
+            if db.query(models.Paciente).filter(models.Paciente.dni == dni).first():
+                continue
+            db.add(models.Paciente(
+                apellido=ap, nombre=nom, dni=dni, telefono=tel,
+                email=email, nro_hc=str(110 + i),
+                financiador=fin, plan=plan,
+            ))
+        db.commit()
+        log.info("Seed demo: 15 pacientes adicionales cargados (HC 110-124).")
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.error("Error en seed demo pacientes: %s", e)
+    finally:
+        db.close()
+
+
+def _seed_demo_turnos():
+    """
+    Carga ~30 turnos repartidos entre semana pasada, hoy, mañana y próxima semana,
+    en distintos estados, para que la agenda y el dashboard se vean poblados.
+    Solo corre si no hay turnos en la BD (idempotente).
+    """
+    db = SessionLocal()
+    try:
+        if db.query(models.Turno).count() > 0:
+            return
+
+        medicos = db.query(models.Medico).all()
+        pacientes = db.query(models.Paciente).all()
+        if not medicos or not pacientes:
+            log.warning("Seed demo turnos: faltan médicos o pacientes, salteo.")
+            return
+
+        # Helper para consultorio por médico (usa el del primer horario, o 1).
+        def _consul_de(m):
+            if m.horarios:
+                return m.horarios[0].consultorio or 1
+            return 1
+
+        hoy = date.today()
+        # Monday de esta semana
+        lunes_esta = hoy - timedelta(days=hoy.weekday())
+        lunes_prox = lunes_esta + timedelta(days=7)
+        lunes_pasado = lunes_esta - timedelta(days=7)
+
+        def _at(d, hh, mm=0):
+            return datetime.combine(d, time(hh, mm))
+
+        E = models.EstadoTurno
+        # Repartimos: (día, hora, minuto, idx_medico, idx_paciente, estado, wa_enviado)
+        plan_turnos = [
+            # HOY — 6 turnos mixtos
+            (hoy,                 9, 30, 0, 0,  E.pendiente,  False),
+            (hoy,                10, 15, 1, 1,  E.confirmado, True),
+            (hoy,                11,  0, 2, 2,  E.realizado,  True),
+            (hoy,                12,  0, 3 % max(len(medicos),1), 3, E.ausente, True),
+            (hoy,                15,  0, 0, 4,  E.pendiente,  False),
+            (hoy,                16, 30, 1, 5,  E.confirmado, True),
+            # MAÑANA — 5 turnos
+            (hoy + timedelta(1),  9,  0, 2, 6,  E.confirmado, True),
+            (hoy + timedelta(1), 10,  0, 3 % max(len(medicos),1), 7, E.pendiente, False),
+            (hoy + timedelta(1), 11, 30, 0, 8,  E.confirmado, True),
+            (hoy + timedelta(1), 14, 30, 1, 9,  E.pendiente,  False),
+            (hoy + timedelta(1), 17,  0, 2, 10, E.pendiente,  False),
+            # Próxima semana (Lun-Jue) — 8 turnos
+            (lunes_prox + timedelta(0),  9, 30, 0, 11, E.pendiente,  False),
+            (lunes_prox + timedelta(0), 15,  0, 1, 12, E.pendiente,  False),
+            (lunes_prox + timedelta(1), 10,  0, 2, 13, E.confirmado, True),
+            (lunes_prox + timedelta(1), 16, 30, 3 % max(len(medicos),1), 14, E.pendiente, False),
+            (lunes_prox + timedelta(2),  9,  0, 0, 15, E.confirmado, True),
+            (lunes_prox + timedelta(2), 11, 30, 1, 16, E.pendiente,  False),
+            (lunes_prox + timedelta(3), 10, 30, 2, 17, E.pendiente,  False),
+            (lunes_prox + timedelta(3), 14,  0, 3 % max(len(medicos),1), 18, E.confirmado, True),
+            # Semana pasada — 5 turnos (mayoría realizados, uno ausente)
+            (lunes_pasado + timedelta(0), 10,  0, 0, 19 % len(pacientes), E.realizado, True),
+            (lunes_pasado + timedelta(1), 11, 30, 1, 20 % len(pacientes), E.realizado, True),
+            (lunes_pasado + timedelta(2), 15,  0, 2, 21 % len(pacientes), E.realizado, True),
+            (lunes_pasado + timedelta(3), 16, 30, 0, 22 % len(pacientes), E.ausente,   True),
+            (lunes_pasado + timedelta(4),  9, 30, 1, 23 % len(pacientes), E.realizado, True),
+            # Cancelados dispersos
+            (hoy + timedelta(2), 10, 30, 0, 24 % len(pacientes), E.cancelado, False),
+            (lunes_prox + timedelta(4), 12, 0, 1, 0, E.cancelado, False),
+            (lunes_pasado + timedelta(2), 17, 0, 2, 1, E.cancelado, False),
+        ]
+
+        creados = 0
+        for dia, hh, mm, im, ip, estado, wa in plan_turnos:
+            m = medicos[im % len(medicos)]
+            p = pacientes[ip % len(pacientes)]
+            db.add(models.Turno(
+                paciente_id=p.id,
+                medico_id=m.id,
+                consultorio=_consul_de(m),
+                fecha_hora_inicio=_at(dia, hh, mm),
+                duracion_minutos=45,
+                estado=estado,
+                whatsapp_enviado=wa,
+                observaciones=None,
+            ))
+            creados += 1
+        db.commit()
+        log.info("Seed demo: %d turnos cargados (hoy, mañana, semana, pasado).", creados)
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.error("Error en seed demo turnos: %s", e)
     finally:
         db.close()

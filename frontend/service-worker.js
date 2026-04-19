@@ -13,7 +13,7 @@
  *
  * Para forzar refresh tras un deploy: bumpear CACHE.
  */
-const CACHE = "mio-medic-v1";
+const CACHE = "mio-medic-v2-demo";
 const SHELL = [
   "/",
   "/login",
