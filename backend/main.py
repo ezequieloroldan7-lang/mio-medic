@@ -24,7 +24,7 @@ from datetime import date, datetime, time, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, joinedload
 
@@ -309,18 +309,106 @@ LOGIN_HTML = FRONTEND_DIR / "login.html"
 MANIFEST_FILE = FRONTEND_DIR / "manifest.webmanifest"
 SW_FILE       = FRONTEND_DIR / "service-worker.js"
 
+
+# ── Rebrand server-side para la demo ─────────────────────────
+# Cuando DEMO_MODE está activo queremos que la página no muestre el nombre
+# ni el logo de la marca: todo debe leerse "DEMO TURNOS". Servimos el HTML
+# original con reemplazos de texto y ocultamos los <img> de logo vía un
+# <style> inyectado en el <head>. Para el favicon y los íconos del manifest
+# usamos un PNG 1×1 transparente codificado en data URI.
+_DEMO_TRANSPARENT_PNG = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+)
+
+_DEMO_EXTRA_HEAD_STYLE = (
+    "<style>"
+    # Ocultamos todas las imágenes de logo sin remover el elemento (evita
+    # tocar el markup y preserva layouts que asumen un espacio).
+    ".header-logo,.login-logo{display:none!important}"
+    # En el sidebar el "brand" pasa a ser solo "DEMO TURNOS"; dejamos el
+    # tipografía default — no hace falta nada más.
+    "</style>"
+)
+
+_DEMO_TEXT_REPLACEMENTS = [
+    # Titles y metas
+    ("MIO MEDIC — Iniciar sesion", "DEMO TURNOS"),
+    ("MIO MEDIC — Turnos",          "DEMO TURNOS"),
+    ('content="MIO Medic"',         'content="DEMO TURNOS"'),
+    # Subtítulos visibles
+    ("Medicina Integral Oncologica & Estetica",            "DEMO TURNOS"),
+    ("Medicina Integral<br>Oncológica &amp; Estética",     "DEMO TURNOS"),
+    # Sidebar brand
+    ("Sistema de Turnos", "DEMO TURNOS"),
+    # Attrs / copy residual
+    ('alt="MIO MEDIC"', 'alt="DEMO TURNOS"'),
+]
+
+
+def _render_demo_html(path: Path) -> HTMLResponse:
+    """
+    Lee un archivo HTML y devuelve su versión "rebrand demo":
+    - Reemplaza los strings con "MIO Medic" / subtítulos de la marca.
+    - Reemplaza el href del favicon (/static/img/logo.png) por un PNG
+      transparente.
+    - Inyecta un <style> que oculta los <img class="*-logo">.
+    """
+    html = path.read_text(encoding="utf-8")
+    for old, new in _DEMO_TEXT_REPLACEMENTS:
+        html = html.replace(old, new)
+    # Tanto los <link rel="icon" href="..."> como los <img src="..."> apuntan
+    # al mismo logo.png — reemplazamos ambos por el PNG transparente.
+    html = html.replace("/static/img/logo.png", _DEMO_TRANSPARENT_PNG)
+    html = html.replace("</head>", f"{_DEMO_EXTRA_HEAD_STYLE}</head>", 1)
+    return HTMLResponse(html)
+
+
+def _demo_manifest_json():
+    """Manifest PWA para la demo: sin logo de marca ni menciones a MIO."""
+    return {
+        "name": "DEMO TURNOS",
+        "short_name": "DEMO TURNOS",
+        "description": "Demo pública del sistema de turnos.",
+        "lang": "es-AR",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait",
+        "background_color": "#FAF7F3",
+        "theme_color": "#FAF7F3",
+        "icons": [
+            {
+                "src": _DEMO_TRANSPARENT_PNG,
+                "sizes": "1x1",
+                "type": "image/png",
+                "purpose": "any",
+            },
+        ],
+    }
+
+
 @app.get("/")
 def root():
+    if DEMO_MODE:
+        return _render_demo_html(INDEX_HTML)
     return FileResponse(str(INDEX_HTML))
 
 @app.get("/login")
 def login_page():
+    if DEMO_MODE:
+        return _render_demo_html(LOGIN_HTML)
     return FileResponse(str(LOGIN_HTML))
 
 # PWA: manifest y service-worker se sirven desde el root para que el scope
 # del SW cubra toda la app (un SW en /static/ solo controlaría /static/*).
 @app.get("/manifest.webmanifest")
 def pwa_manifest():
+    if DEMO_MODE:
+        return JSONResponse(
+            _demo_manifest_json(),
+            media_type="application/manifest+json",
+        )
     return FileResponse(
         str(MANIFEST_FILE),
         media_type="application/manifest+json",
@@ -362,7 +450,7 @@ def demo_info():
         "credenciales": [
             {"rol": "Administrador", "usuario": "admin",     "password": DEMO_PASSWORD},
             {"rol": "Secretaría",    "usuario": "mioturnos", "password": DEMO_PASSWORD},
-            {"rol": "Médico",        "usuario": "m.garrido", "password": DEMO_PASSWORD},
+            {"rol": "Médico",        "usuario": "j.perez",   "password": DEMO_PASSWORD},
         ],
     }
 
