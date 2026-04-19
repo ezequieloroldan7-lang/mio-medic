@@ -1,0 +1,59 @@
+# Blueprint independiente para la DEMO pública de MIO Medic.
+#
+# Por qué está separado de render.yaml:
+#   - render.yaml define el servicio productivo `miomedic-turnos` (plan Starter
+#     + disco persistente, $7.25/mes). No lo tocamos.
+#   - Este archivo define SOLO el servicio de demo, en plan FREE y sin disco:
+#     costo mensual $0. El SQLite vive en el filesystem efímero y se regenera
+#     con el seed rico cada vez que el servicio arranca.
+#
+# Cómo aplicarlo en Render:
+#   1. Render Dashboard → New + → Blueprint.
+#   2. Conectar el repo `mio-medic`.
+#   3. En "Blueprint Settings" poner Blueprint Path = `render-demo.yaml`
+#      (por defecto Render busca `render.yaml`; hay que sobreescribirlo).
+#   4. Branch: la rama donde viva este archivo (típicamente `main`).
+#   5. Apply → Render crea SOLO `miomedic-demo`, gratis.
+#
+# Trade-offs del free tier:
+#   - El servicio se duerme tras 15 min sin tráfico. El primer visitante
+#     tras la siesta espera ~30-60s de cold start; después es instantáneo.
+#   - El SQLite es efímero (no hay `disk:`). Los cambios que haga un
+#     visitante (crear turnos, editar pacientes) se pierden al dormirse o
+#     redeployar. Para una demo es lo que queremos: siempre arranca limpia
+#     con el seed rico definido en backend/main.py::_seed_demo_*.
+#   - Free tier: 512 MB RAM, 0.1 CPU — más que suficiente para FastAPI
+#     con unos pocos visitantes simultáneos.
+
+services:
+  - type: web
+    name: miomedic-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      # Activa el seed rico y las credenciales fijas del banner de login.
+      - key: DEMO_MODE
+        value: "1"
+      # Password que se muestra en el banner de /login y se loggea contra.
+      # Cambiala si querés algo más difícil de adivinar (igual es público).
+      - key: DEMO_PASSWORD
+        value: demo123
+      # Clave de firma JWT — Render la genera una vez y persiste en el servicio.
+      - key: SECRET_KEY
+        generateValue: true
+      # En DEMO_MODE el código ignora esta var y fuerza DEMO_PASSWORD en admin;
+      # la dejamos para que la validación del startup no se queje.
+      - key: INITIAL_ADMIN_PASSWORD
+        value: demo123
+      # Clave independiente de cifrado at-rest para PII. Se genera una vez
+      # y se persiste a nivel servicio (no al disco, que aquí no existe).
+      - key: FIELD_ENCRYPTION_KEY
+        generateValue: true
+      - key: REFRESH_TOKEN_DAYS
+        value: "30"
+      - key: CORS_ORIGINS
+        value: ""
+      # No setamos WhatsApp ni backup: en DEMO_MODE el scheduler no arranca.
