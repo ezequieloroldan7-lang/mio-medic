@@ -223,9 +223,26 @@ def eliminar_medico(
         db.query(models.Turno).filter(
             models.Turno.medico_id == medico_id,
         ).delete(synchronize_session=False)
-        db.query(models.User).filter(
+
+        # Limpiar refs a los users del médico antes de borrarlos:
+        #  - refresh_tokens.user_id es NOT NULL → borrar tokens
+        #  - bloqueos_medico.creado_por es nullable → NULL (el bloqueo puede
+        #    ser de otro médico; no queremos perderlo)
+        user_ids = [uid for (uid,) in db.query(models.User.id).filter(
             models.User.medico_id == medico_id,
-        ).delete(synchronize_session=False)
+        ).all()]
+        if user_ids:
+            db.query(models.RefreshToken).filter(
+                models.RefreshToken.user_id.in_(user_ids),
+            ).delete(synchronize_session=False)
+            db.query(models.BloqueoMedico).filter(
+                models.BloqueoMedico.creado_por.in_(user_ids),
+            ).update({models.BloqueoMedico.creado_por: None},
+                     synchronize_session=False)
+            db.query(models.User).filter(
+                models.User.id.in_(user_ids),
+            ).delete(synchronize_session=False)
+
         # Flush para que el ORM vea las filas hijas eliminadas antes de procesar
         # el cascade del médico (evita UPDATEs inválidos sobre turnos/users).
         db.flush()
