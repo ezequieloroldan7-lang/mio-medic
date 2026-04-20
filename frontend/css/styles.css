@@ -477,6 +477,18 @@ body {
    y en el fondo tintado. */
 [data-theme="dark"] .turno-chip { color: var(--text); }
 [data-theme="dark"] .chip-bloqueado { color: var(--text); }
+
+/* .cal-col-wrap:nth-child(N) .turno-chip setea un fondo claro hardcoded
+   (#f8f4f0 / #faf6f0) que en light mode es discreto pero en dark mode queda
+   casi blanco y choca con el texto claro — los chips se vuelven ilegibles.
+   En dark re-pintamos el fondo usando los tokens -lt de cada estado (que ya
+   están ajustados para contraste en dark). La especificidad es (0,4,0) y le
+   gana a la regla original (0,3,0) de cal-col-wrap. */
+[data-theme="dark"] .cal-col-wrap .turno-chip.chip-pendiente  { background: var(--accent); }
+[data-theme="dark"] .cal-col-wrap .turno-chip.chip-confirmado { background: var(--success-lt); }
+[data-theme="dark"] .cal-col-wrap .turno-chip.chip-cancelado  { background: var(--danger-lt); }
+[data-theme="dark"] .cal-col-wrap .turno-chip.chip-ausente    { background: var(--ausente-lt); }
+[data-theme="dark"] .cal-col-wrap .turno-chip.chip-realizado  { background: var(--info-lt); }
 .chip-nombre { font-weight: 600; font-size: .78rem; line-height: 1.25; }
 .chip-hc     { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
 .chip-esp    { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
