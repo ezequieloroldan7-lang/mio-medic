@@ -132,10 +132,30 @@ def eliminar_medico(medico_id: int, force: bool = False, db: Session = Depends(g
                 "No se puede eliminar: tiene turnos pendientes o confirmados. Cancelalos primero.",
             )
 
-    # Eliminar turnos, usuario y horarios asociados
-    db.query(models.Turno).filter(models.Turno.medico_id == medico_id).delete()
-    db.query(models.User).filter(models.User.medico_id == medico_id).delete()
-    db.delete(m); db.commit()
+    try:
+        # Eliminar turnos, usuarios y horarios asociados antes del médico.
+        # synchronize_session=False: no hace falta sincronizar el session porque
+        # el médico se borra acto seguido y la sesión se cierra al terminar.
+        db.query(models.Turno).filter(
+            models.Turno.medico_id == medico_id,
+        ).delete(synchronize_session=False)
+        db.query(models.User).filter(
+            models.User.medico_id == medico_id,
+        ).delete(synchronize_session=False)
+        db.query(models.HorarioMedico).filter(
+            models.HorarioMedico.medico_id == medico_id,
+        ).delete(synchronize_session=False)
+        # Flush para que el ORM vea las filas hijas eliminadas antes de procesar
+        # el delete del médico (evita que intente cargar/actualizar relaciones).
+        db.flush()
+        db.delete(m)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        log.exception("Error al eliminar médico id=%s", medico_id)
+        raise HTTPException(500, f"No se pudo eliminar el profesional: {e}")
     log.info("Médico id=%s eliminado con sus datos asociados", medico_id)
 
 
