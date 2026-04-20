@@ -216,10 +216,27 @@ def eliminar_medico(
     audit(db, request, "medico.delete", user=user,
           entity_type="medico", entity_id=m.id,
           details={"nombre": m.nombre, "apellido": m.apellido, "force": bool(force)})
-    # Eliminar turnos, usuario y horarios asociados
-    db.query(models.Turno).filter(models.Turno.medico_id == medico_id).delete()
-    db.query(models.User).filter(models.User.medico_id == medico_id).delete()
-    db.delete(m); db.commit()
+
+    try:
+        # synchronize_session=False: la sesión se cierra al terminar la request,
+        # no hace falta sincronizar objetos en memoria.
+        db.query(models.Turno).filter(
+            models.Turno.medico_id == medico_id,
+        ).delete(synchronize_session=False)
+        db.query(models.User).filter(
+            models.User.medico_id == medico_id,
+        ).delete(synchronize_session=False)
+        # Flush para que el ORM vea las filas hijas eliminadas antes de procesar
+        # el cascade del médico (evita UPDATEs inválidos sobre turnos/users).
+        db.flush()
+        db.delete(m)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        log.exception("Error al eliminar médico id=%s", medico_id)
+        raise HTTPException(500, f"No se pudo eliminar el profesional: {e}")
     log.info("Médico id=%s eliminado con sus datos asociados", medico_id)
 
 
