@@ -493,6 +493,20 @@ body {
 .chip-hc     { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
 .chip-esp    { font-size: .7rem; font-weight: 500; color: inherit; line-height: 1.2; }
 .chip-obs    { font-size: .68rem; font-weight: 400; color: inherit; line-height: 1.2; opacity: .88; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* En dark mode las líneas secundarias del chip (HC · horario, Apellido ·
+   Especialidad) heredan color del padre pero con peso 500 quedan grises
+   contra el fondo tintado. Las pintamos explícitamente con --text y subimos
+   el peso para que se lean bien, sin perder la jerarquía con el nombre. */
+[data-theme="dark"] .chip-hc,
+[data-theme="dark"] .chip-esp {
+  color: var(--text);
+  font-weight: 600;
+}
+[data-theme="dark"] .chip-obs {
+  color: var(--text);
+  opacity: 1;
+}
 .chip-actions {
   display: flex; gap: .25rem; margin-top: .3rem; flex-wrap: wrap;
 }
@@ -576,6 +590,16 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 textarea { resize: vertical; min-height: 70px; }
+
+/* Input marcado como readonly (p. ej. HC auto-calculado en "Nuevo Turno").
+   Usa --accent como fondo: en light es crema tenue, en dark es un gris
+   teñido que se distingue del input editable pero no pierde legibilidad. */
+input.input-readonly,
+input[readonly] {
+  background: var(--accent);
+  color: var(--text);
+  cursor: default;
+}
 
 /* Validación inline: borde rojo + mensaje bajo el campo */
 input.has-error, select.has-error, textarea.has-error {
