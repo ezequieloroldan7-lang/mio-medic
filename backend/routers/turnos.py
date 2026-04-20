@@ -1,17 +1,20 @@
-import csv
 import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import schemas
+from audit import audit, _diff_dict
+from auth import get_current_user
 from database import get_db, SessionLocal
 from whatsapp import enviar_turno_agendado
 import gcalendar
@@ -95,6 +98,17 @@ def _hay_solapamiento(db: Session, consultorio: int, inicio: datetime,
         if t.fecha_hora_inicio < fin and t_fin > inicio:
             return True
     return False
+
+
+def _bloqueo_que_intersecta(db: Session, medico_id: int, inicio: datetime,
+                            duracion: int) -> Optional[models.BloqueoMedico]:
+    """Si el profesional tiene un bloqueo que intersecte el rango, lo devuelve."""
+    fin = inicio + timedelta(minutes=duracion)
+    return db.query(models.BloqueoMedico).filter(
+        models.BloqueoMedico.medico_id == medico_id,
+        models.BloqueoMedico.fecha_inicio <  fin,
+        models.BloqueoMedico.fecha_fin    >  inicio,
+    ).first()
 
 
 def _normalizar_duracion(d: int) -> int:
@@ -216,14 +230,34 @@ def stats(
     }
 
 
-# ── EXPORT CSV ───────────────────────────────────────────────
-@router.get("/export.csv")
-def export_csv(
+# ── EXPORT XLSX ──────────────────────────────────────────────
+_XLSX_COLUMNS = [
+    ("ID", 6),
+    ("Fecha", 12),
+    ("Hora", 8),
+    ("Consultorio", 12),
+    ("Duración (min)", 14),
+    ("Paciente", 28),
+    ("DNI", 12),
+    ("HC", 8),
+    ("Teléfono", 16),
+    ("Financiador", 20),
+    ("Plan", 16),
+    ("Profesional", 24),
+    ("Especialidad", 18),
+    ("Estado", 12),
+    ("WhatsApp enviado", 16),
+    ("Observaciones", 40),
+]
+
+
+@router.get("/export.xlsx")
+def export_xlsx(
     desde: Optional[date] = Query(None),
     hasta: Optional[date] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Exporta los turnos del rango (o últimos 30 días) a CSV."""
+    """Exporta los turnos del rango (o últimos 30 días) a Excel (.xlsx)."""
     if not hasta:
         hasta = date.today()
     if not desde:
@@ -236,20 +270,28 @@ def export_csv(
         )
     ).order_by(models.Turno.fecha_hora_inicio)
 
-    buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";")
-    w.writerow([
-        "ID", "Fecha", "Hora", "Consultorio", "Duración (min)",
-        "Paciente", "DNI", "HC", "Teléfono", "Financiador", "Plan",
-        "Profesional", "Especialidad", "Estado", "WhatsApp enviado", "Observaciones",
-    ])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Turnos"
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="6B5B4F")
+    header_align = Alignment(horizontal="center", vertical="center")
+    ws.append([name for name, _ in _XLSX_COLUMNS])
+    for idx, (_, width) in enumerate(_XLSX_COLUMNS, start=1):
+        cell = ws.cell(row=1, column=idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        ws.column_dimensions[cell.column_letter].width = width
+
     for t in q.all():
         p = t.paciente
         m = t.medico
-        w.writerow([
+        ws.append([
             t.id,
-            t.fecha_hora_inicio.strftime("%Y-%m-%d"),
-            t.fecha_hora_inicio.strftime("%H:%M"),
+            t.fecha_hora_inicio.date(),
+            t.fecha_hora_inicio.time().replace(second=0, microsecond=0),
             t.consultorio,
             t.duracion_minutos,
             f"{p.apellido}, {p.nombre}" if p else "",
@@ -264,13 +306,22 @@ def export_csv(
             "sí" if t.whatsapp_enviado else "no",
             (t.observaciones or "").replace("\n", " "),
         ])
+
+    # number_format para que Excel reconozca fecha/hora (columnas B y C).
+    for row in ws.iter_rows(min_row=2, min_col=2, max_col=3):
+        row[0].number_format = "yyyy-mm-dd"
+        row[1].number_format = "hh:mm"
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+
+    buf = io.BytesIO()
+    wb.save(buf)
     buf.seek(0)
-    filename = f"turnos_{desde.isoformat()}_{hasta.isoformat()}.csv"
-    # BOM para que Excel detecte UTF-8
-    data = "\ufeff" + buf.getvalue()
+    filename = f"turnos_{desde.isoformat()}_{hasta.isoformat()}.xlsx"
     return StreamingResponse(
-        iter([data]),
-        media_type="text/csv; charset=utf-8",
+        iter([buf.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
@@ -284,9 +335,20 @@ def obtener_turno(turno_id: int, db: Session = Depends(get_db)):
     return t
 
 
+_TURNO_AUDIT_FIELDS = [
+    "paciente_id", "medico_id", "consultorio",
+    "fecha_hora_inicio", "duracion_minutos", "estado", "observaciones",
+]
+
+
 # ── CREATE ───────────────────────────────────────────────────
 @router.post("/", response_model=schemas.TurnoOut, status_code=201)
-def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
+def crear_turno(
+    data: schemas.TurnoCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     _validar_horario(data.fecha_hora_inicio)
     _normalizar_consultorio(data.consultorio)
     _normalizar_duracion(data.duracion_minutos)
@@ -299,8 +361,21 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
     if _hay_solapamiento(db, data.consultorio, data.fecha_hora_inicio, data.duracion_minutos):
         raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
+    bloqueo = _bloqueo_que_intersecta(db, data.medico_id, data.fecha_hora_inicio, data.duracion_minutos)
+    if bloqueo:
+        motivo = f" (motivo: {bloqueo.motivo})" if bloqueo.motivo else ""
+        raise HTTPException(409, f"El profesional tiene un bloqueo en ese horario{motivo}.")
+
     t = models.Turno(**data.model_dump())
-    db.add(t)
+    db.add(t); db.flush()
+    audit(db, request, "turno.create", user=user,
+          entity_type="turno", entity_id=t.id,
+          details={
+              "paciente_id": t.paciente_id, "medico_id": t.medico_id,
+              "consultorio": t.consultorio,
+              "fecha_hora_inicio": t.fecha_hora_inicio.isoformat(),
+              "duracion_minutos": t.duracion_minutos,
+          })
     db.commit()
     db.refresh(t)
     log.info("Turno creado id=%s paciente=%s medico=%s fecha=%s",
@@ -314,7 +389,7 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
     # WhatsApp al paciente
     if p and p.telefono:
         nombre   = f"{p.nombre} {p.apellido}"
-        medico_n = f"Dr/a. {m.nombre} {m.apellido}" if m else ""
+        medico_n = f"{m.nombre} {m.apellido}" if m else ""
         esp      = m.especialidad.nombre if m and m.especialidad else ""
         fecha_hr = t.fecha_hora_inicio.strftime("%d/%m/%Y a las %H:%M hs")
         _bg_pool.submit(
@@ -332,18 +407,27 @@ def crear_turno(data: schemas.TurnoCreate, db: Session = Depends(get_db)):
 
 # ── UPDATE ───────────────────────────────────────────────────
 @router.put("/{turno_id}", response_model=schemas.TurnoOut)
-def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Depends(get_db)):
+def actualizar_turno(
+    turno_id: int,
+    data: schemas.TurnoUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     t = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not t:
         raise HTTPException(404, "Turno no encontrado")
 
     payload = data.model_dump(exclude_none=True)
+    before = {k: getattr(t, k) for k in _TURNO_AUDIT_FIELDS}
 
     # Si cambian datos que afectan solapamiento, revalidamos
     nuevo_consultorio = payload.get("consultorio", t.consultorio)
     nueva_fecha       = payload.get("fecha_hora_inicio", t.fecha_hora_inicio)
     nueva_duracion    = payload.get("duracion_minutos",  t.duracion_minutos)
     nuevo_estado      = payload.get("estado", t.estado)
+
+    nuevo_medico = payload.get("medico_id", t.medico_id)
 
     if "consultorio" in payload or "fecha_hora_inicio" in payload or "duracion_minutos" in payload:
         _validar_horario(nueva_fecha)
@@ -354,8 +438,22 @@ def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Dep
         ):
             raise HTTPException(409, "Ya existe un turno en ese consultorio y horario.")
 
+    if (
+        nuevo_estado != models.EstadoTurno.cancelado
+        and ("fecha_hora_inicio" in payload or "duracion_minutos" in payload or "medico_id" in payload)
+    ):
+        bloqueo = _bloqueo_que_intersecta(db, nuevo_medico, nueva_fecha, nueva_duracion)
+        if bloqueo:
+            motivo = f" (motivo: {bloqueo.motivo})" if bloqueo.motivo else ""
+            raise HTTPException(409, f"El profesional tiene un bloqueo en ese horario{motivo}.")
+
     for k, v in payload.items():
         setattr(t, k, v)
+    after = {k: getattr(t, k) for k in _TURNO_AUDIT_FIELDS}
+    diff = _diff_dict(before, after, _TURNO_AUDIT_FIELDS)
+    if diff:
+        audit(db, request, "turno.update", user=user,
+              entity_type="turno", entity_id=t.id, details={"diff": diff})
     db.commit()
     db.refresh(t)
 
@@ -369,7 +467,12 @@ def actualizar_turno(turno_id: int, data: schemas.TurnoUpdate, db: Session = Dep
 
 # ── SOFT CANCEL ──────────────────────────────────────────────
 @router.delete("/{turno_id}/cancelar", status_code=204)
-def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
+def cancelar_turno(
+    turno_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     t = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not t:
         raise HTTPException(404, "Turno no encontrado")
@@ -378,6 +481,7 @@ def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
     m = db.query(models.Medico).filter(models.Medico.id == t.medico_id).first()
     gcal_id = m.google_calendar_id if m else None
     event_id = t.google_event_id
+    audit(db, request, "turno.cancel", user=user, entity_type="turno", entity_id=t.id)
     db.commit()
     log.info("Turno id=%s cancelado", turno_id)
     if gcal_id and event_id:
@@ -386,7 +490,12 @@ def cancelar_turno(turno_id: int, db: Session = Depends(get_db)):
 
 # ── HARD DELETE ──────────────────────────────────────────────
 @router.delete("/{turno_id}", status_code=204)
-def eliminar_turno(turno_id: int, db: Session = Depends(get_db)):
+def eliminar_turno(
+    turno_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     t = db.query(models.Turno).filter(models.Turno.id == turno_id).first()
     if not t:
         raise HTTPException(404, "Turno no encontrado")
@@ -394,6 +503,13 @@ def eliminar_turno(turno_id: int, db: Session = Depends(get_db)):
     m = db.query(models.Medico).filter(models.Medico.id == t.medico_id).first()
     gcal_id = m.google_calendar_id if m else None
     event_id = t.google_event_id
+    audit(db, request, "turno.delete", user=user,
+          entity_type="turno", entity_id=t.id,
+          details={
+              "paciente_id": t.paciente_id,
+              "medico_id": t.medico_id,
+              "fecha_hora_inicio": t.fecha_hora_inicio.isoformat(),
+          })
     db.delete(t)
     db.commit()
     log.info("Turno id=%s ELIMINADO permanentemente", turno_id)

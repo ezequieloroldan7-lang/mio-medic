@@ -16,6 +16,9 @@ class PacienteOut(PacienteBase):
     class Config: from_attributes = True
 
 # ── Especialidad ─────────────────────────────────────────────
+class EspecialidadCreate(BaseModel):
+    nombre: str
+
 class EspecialidadOut(BaseModel):
     id: int; nombre: str
     class Config: from_attributes = True
@@ -43,6 +46,20 @@ class MedicoOut(MedicoBase):
     horarios: List[HorarioOut] = []
     class Config: from_attributes = True
 
+# ── Bloqueo ──────────────────────────────────────────────────
+class BloqueoCreate(BaseModel):
+    fecha_inicio: datetime
+    fecha_fin:    datetime
+    motivo:       Optional[str] = None
+
+class BloqueoOut(BaseModel):
+    id:           int
+    medico_id:    int
+    fecha_inicio: datetime
+    fecha_fin:    datetime
+    motivo:       Optional[str] = None
+    class Config: from_attributes = True
+
 # ── Turno ─────────────────────────────────────────────────────
 class TurnoBase(BaseModel):
     paciente_id: int; medico_id: int; consultorio: int
@@ -68,6 +85,7 @@ class TurnoOut(TurnoBase):
 # ── Auth / User ──────────────────────────────────────────────
 class LoginRequest(BaseModel):
     username: str; password: str
+    totp_code: Optional[str] = None
 
 class TokenOut(BaseModel):
     access_token: str; token_type: str = "bearer"
@@ -76,6 +94,8 @@ class TokenOut(BaseModel):
 class UserOut(BaseModel):
     id: int; username: str; display_name: str
     role: str; medico_id: Optional[int] = None
+    must_change_password: bool = False
+    totp_enabled: bool = False
     class Config: from_attributes = True
 
 class UserCreate(BaseModel):

@@ -1,0 +1,26 @@
+{
+  "name": "MIO Medic — Turnos",
+  "short_name": "MIO Medic",
+  "description": "Gestión de turnos, pacientes y profesionales para MIO Medic.",
+  "lang": "es-AR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F3",
+  "theme_color": "#FAF7F3",
+  "icons": [
+    {
+      "src": "/static/img/logo.png",
+      "sizes": "420x420",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/logo.png",
+      "sizes": "420x420",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

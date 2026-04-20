@@ -4,40 +4,75 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="theme-color" content="#FAF7F3"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="MIO Medic"/>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="icon" href="/static/img/logo.png" type="image/png"/>
+  <link rel="apple-touch-icon" href="/static/img/logo.png"/>
   <title>MIO MEDIC — Iniciar sesion</title>
+  <script src="/static/js/theme.js?v=2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&display=swap">
   <style>
+    :root {
+      --lg-bg: #FAF7F3;
+      --lg-surface: #FFFFFF;
+      --lg-text: #2B241E;
+      --lg-label: #6B5B4F;
+      --lg-muted: #6B5F53;
+      --lg-border: #E8E0D8;
+      --lg-primary: #6B5B4F;
+      --lg-primary-hover: #5A4A3E;
+      --lg-shadow: 0 4px 20px rgba(80,55,40,.06);
+      --lg-error: #c0392b;
+      color-scheme: light;
+    }
+    /* Dark mode: solo si el usuario lo eligió (data-theme="dark").
+       No seguimos prefers-color-scheme; light es el default. */
+    [data-theme="dark"] {
+      --lg-bg: #1A1614;
+      --lg-surface: #26211C;
+      --lg-text: #F0EAE0;
+      --lg-label: #C8BAA8;
+      --lg-muted: #9E9080;
+      --lg-border: #3A332C;
+      --lg-primary: #7A6857;
+      --lg-primary-hover: #8A7866;
+      --lg-shadow: 0 4px 20px rgba(0,0,0,.4);
+      --lg-error: #D88585;
+      color-scheme: dark;
+    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Raleway', sans-serif;
-      background: #FAF7F3;
+      background: var(--lg-bg);
+      color: var(--lg-text);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .login-card {
-      background: #fff;
+      background: var(--lg-surface);
       border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.08);
+      box-shadow: var(--lg-shadow);
       padding: 3rem 2.5rem;
       width: 100%;
       max-width: 400px;
       text-align: center;
     }
     .login-logo {
-      font-size: 2.5rem;
-      font-weight: 200;
-      letter-spacing: .5rem;
-      color: #6B5B4F;
-      margin-bottom: .25rem;
+      width: 120px; height: 120px;
+      margin: 0 auto .25rem;
+      object-fit: contain;
+      display: block;
     }
     .login-subtitle {
       font-size: .7rem;
-      font-weight: 300;
+      font-weight: 500;
       letter-spacing: .25rem;
-      color: #A89888;
+      color: var(--lg-muted);
       text-transform: uppercase;
       margin-bottom: 2.5rem;
     }
@@ -51,13 +86,15 @@
       font-weight: 600;
       letter-spacing: .08rem;
       text-transform: uppercase;
-      color: #6B5B4F;
+      color: var(--lg-label);
       margin-bottom: .4rem;
     }
     .form-group input {
       width: 100%;
       padding: .75rem 1rem;
-      border: 1.5px solid #E8E0D8;
+      background: var(--lg-surface);
+      color: var(--lg-text);
+      border: 1px solid var(--lg-border);
       border-radius: 8px;
       font-family: inherit;
       font-size: .95rem;
@@ -65,12 +102,12 @@
       transition: border-color .2s;
     }
     .form-group input:focus {
-      border-color: #6B5B4F;
+      border-color: var(--lg-primary);
     }
     .btn-login {
       width: 100%;
       padding: .85rem;
-      background: #6B5B4F;
+      background: var(--lg-primary);
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -81,9 +118,9 @@
       margin-top: .5rem;
       transition: background .2s;
     }
-    .btn-login:hover { background: #5A4A3E; }
+    .btn-login:hover { background: var(--lg-primary-hover); }
     .error-msg {
-      color: #c0392b;
+      color: var(--lg-error);
       font-size: .8rem;
       margin-top: 1rem;
       display: none;
@@ -92,60 +129,25 @@
 </head>
 <body>
   <div class="login-card">
-    <div class="login-logo">MIO</div>
+    <img class="login-logo" src="/static/img/logo.png" alt="MIO MEDIC" width="120" height="120"/>
     <div class="login-subtitle">Medicina Integral Oncologica & Estetica</div>
     <form id="login-form">
       <div class="form-group">
         <label>Usuario</label>
-        <input type="text" id="username" autocomplete="username" autofocus/>
+        <input type="text" id="username" autocomplete="username" placeholder="Ej: mioturnos" autofocus/>
       </div>
       <div class="form-group">
         <label>Contrasena</label>
-        <input type="password" id="password" autocomplete="current-password"/>
+        <input type="password" id="password" autocomplete="current-password" placeholder="Tu contraseña"/>
+      </div>
+      <div class="form-group" id="totp-group" style="display:none;">
+        <label>Codigo de verificacion (2FA)</label>
+        <input type="text" id="totp_code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="6 digitos"/>
       </div>
       <button type="submit" class="btn-login">Iniciar sesion</button>
       <div class="error-msg" id="error-msg"></div>
     </form>
   </div>
-  <script>
-    // Si ya hay token, redirigir al inicio
-    if (localStorage.getItem("token")) {
-      window.location.href = "/";
-    }
-
-    document.getElementById("login-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const errEl = document.getElementById("error-msg");
-      errEl.style.display = "none";
-
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value;
-
-      if (!username || !password) {
-        errEl.textContent = "Completa usuario y contrasena.";
-        errEl.style.display = "block";
-        return;
-      }
-
-      try {
-        const res = await fetch("/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "Error al iniciar sesion");
-        }
-        const data = await res.json();
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        window.location.href = "/";
-      } catch (err) {
-        errEl.textContent = err.message;
-        errEl.style.display = "block";
-      }
-    });
-  </script>
+  <script src="/static/js/login.js?v=1"></script>
 </body>
 </html>
